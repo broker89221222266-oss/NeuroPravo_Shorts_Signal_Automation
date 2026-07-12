@@ -125,38 +125,6 @@ docs\Manual_Import_Workflow.md
 
 ## Первый реальный прогон
 
-Перед подключением API сделайте один ручной прогон. Он покажет, какие темы реально дают материал, какие поля удобно заполнять и где нужно поправить scoring.
-
-Пакет для сбора первой партии:
-
-```text
-docs\First_Real_Batch_Collection_Guide.md
-data\manual_batches\first_real_batch_plan_2026-07-12.md
-config\search_queries_ru.json
-```
-
-Как работать:
-
-1. Откройте `docs\First_Real_Batch_Collection_Guide.md`.
-2. Используйте запросы из `config\search_queries_ru.json`.
-3. Заполняйте рабочий план `data\manual_batches\first_real_batch_plan_2026-07-12.md`.
-4. Перенесите лучшие 20-50 строк в CSV партии, например `data\manual_batches\batch_2026-07-12.csv`.
-5. Запустите анализ:
-
-```powershell
-python .\scripts\generate_cards.py --input data\manual_batches\batch_2026-07-12.csv --out output\manual_batch_2026-07-12 --min-score 70
-```
-
-Сначала смотрите:
-
-```text
-output\manual_batch_2026-07-12\batch_summary.md
-```
-
-На этом этапе не подключайте scraping, API, логины, токены и платные сервисы. Первый настоящий прогресс - получить ручной shortlist из реальных роликов.
-
-## Первый реальный прогон
-
 Перед подключением API нужно провести один настоящий ручной прогон. Он покажет, какие темы реально дают материал, какие поля удобно заполнять, и что в scoring надо поправить.
 
 Пошаговая инструкция:
@@ -200,6 +168,8 @@ output\first_real_batch_2026-07-12\batch_summary.md
 ```text
 output\first_real_batch_2026-07-12\scenario_cards.md
 ```
+
+На этом этапе не подключайте scraping, API, логины, токены и платные сервисы.
 ## Demo CSV
 
 Проверочные файлы:
@@ -262,5 +232,6 @@ python .\scripts\generate_cards.py --input data\demos\mixed_manual_import_demo.c
 - LLM-вызов вместо локальной эвристики.
 
 Секреты, токены, cookies и ключи не хранить в GitHub, README, CSV или памяти проекта.
+
 
 
