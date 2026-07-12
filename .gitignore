@@ -1,0 +1,47 @@
+﻿# Secrets and local credentials
+.env
+.env.*
+*.env
+*.key
+*.pem
+*.p12
+*.pfx
+*token*
+*tokens*
+*secret*
+*secrets*
+cookies/
+*cookies*
+.credentials/
+.secret/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local caches and temporary data
+cache/
+.cache/
+tmp/
+temp/
+*.tmp
+*.log
+
+# Private/source data that should not be pushed by accident
+private/
+private_data/
+raw_exports/
+downloads/
+manual_imports/private/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

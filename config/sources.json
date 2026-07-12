@@ -1,0 +1,63 @@
+{
+  "project": "NeuroPravo short video research MVP",
+  "window_days": 30,
+  "manual_review_required": true,
+  "publishing_allowed": false,
+  "rendering_allowed": false,
+  "external_upload_allowed": false,
+  "platforms": [
+    {
+      "name": "YouTube Shorts",
+      "mvp_route": "YouTube Data API or manual CSV export",
+      "automation_level": "high",
+      "notes": "Use publishedAfter, relevanceLanguage=ru, regionCode=RU, type=video, videoDuration=short; Shorts detection remains approximate."
+    },
+    {
+      "name": "TikTok",
+      "mvp_route": "Apify or TikTok Research API where access is available",
+      "automation_level": "medium",
+      "notes": "Official research access is restricted; Apify can be faster for MVP, but platform limits and legal/ToS risk must be reviewed."
+    },
+    {
+      "name": "Instagram Reels",
+      "mvp_route": "Apify or manual export",
+      "automation_level": "medium-low",
+      "notes": "Often depends on login/cookies and rate limits. Keep as phase 2."
+    },
+    {
+      "name": "VK Clips / Dzen",
+      "mvp_route": "manual export first, API/scraper later",
+      "automation_level": "low-medium",
+      "notes": "Use after YouTube/TikTok proves the pipeline."
+    }
+  ],
+  "topics": [
+    "долги",
+    "договор",
+    "застройщик",
+    "ремонт",
+    "наследство",
+    "алименты",
+    "маркетплейс",
+    "возврат товара",
+    "предпринимательские долги",
+    "кассовый разрыв",
+    "клиент не платит",
+    "ошибка в переписке",
+    "ошибка в документах",
+    "поверил на слово",
+    "подписал не глядя",
+    "думал что прав но проиграл"
+  ],
+  "scoring": {
+    "with_shares_and_saves": "views + comments * 20 + shares * 30 + saves * 40",
+    "without_shares_or_saves": "views + comments * 30 + likes * 3",
+    "relative_boost": "strength / max(author_average_views, 1)"
+  },
+  "minimums": {
+    "relative_boost": 1.5,
+    "conflict_score": 2,
+    "neuropravo_fit_score": 2
+  }
+}
+
