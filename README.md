@@ -48,6 +48,15 @@ python .\scripts\generate_cards.py --input data\manual_batches\batch_2026-07-12.
 
 В `public_search` нулевые likes/comments не считаются плохой реакцией, если в `notes` указано `unknown`, `visible_on_page` или `approximate`. Такой shortlist редакторский: перед производством нужно вручную открыть выбранные ролики и проверить содержание.
 
+## Smoke tests
+
+Короткая regression-проверка генератора:
+
+```powershell
+python .\scripts\run_smoke_tests.py
+```
+
+Checklist: `docs\Smoke_Test_Checklist.md`.
 ## CSV-шаблон
 
 Шаблон лежит здесь:
@@ -241,6 +250,7 @@ python .\scripts\generate_cards.py --input data\demos\mixed_manual_import_demo.c
 - LLM-вызов вместо локальной эвристики.
 
 Секреты, токены, cookies и ключи не хранить в GitHub, README, CSV или памяти проекта.
+
 
 
 
