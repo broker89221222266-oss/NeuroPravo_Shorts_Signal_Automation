@@ -6,45 +6,138 @@
 
 ## Итог
 
-- SCRIPT-NOW: 1
+- SCRIPT-NOW: 0
 - WATCHLIST: 0
-- SKIP: 0
+- SKIP: 10
 
 ## Кандидаты
 
-### 1. Что делать если номер по ошибке оказался в списке спамеров
+### 1. Опоздал на работу, потому что стоял за бензином
 
-- decision: SCRIPT-NOW
-- total: 28
-- relevance: 6
-- viral_potential: 6
-- neuropravo_fit: 8
+- decision: SKIP
+- total: 14
+- relevance: 4
+- viral_potential: 2
+- neuropravo_fit: 0
 - avatar_fit: 8
 - source: Business FM Telegram
-- url: manual/telegram
-- hook: Вы звоните клиенту, а телефон уже решил за него: вам лучше не отвечать.
-- reasons: есть человеческая или деловая боль, есть риск денег, доступа, связи, репутации или контроля, есть эмоциональный крючок для Reels, есть практический правовой угол для НейроПраво
+- url: https://t.me/BFMnews/71504
+- hook: Опоздал на работу, потому что стоял за бензином
+- reasons: есть человеческая или деловая боль, есть эмоциональный крючок для Reels
 
-#### Compact script
+### 2. Пожар в баре Бангкока: погибли 27 человек
 
-Вы звоните клиенту, а телефон уже решил за него: вам лучше не отвечать.
+- decision: SKIP
+- total: 8
+- relevance: 0
+- viral_potential: 0
+- neuropravo_fit: 4
+- avatar_fit: 4
+- source: Business FM Telegram
+- url: https://t.me/BFMnews/71513
+- hook: Пожар в баре Бангкока: погибли 27 человек
+- reasons: есть практический правовой угол для НейроПраво
 
-Не реклама. Не обзвон. Обычный рабочий звонок.
-Но на той стороне появляется предупреждение: возможно, спам.
+### 3. Сотни российских туристов застряли в аэропортах Китая из-за тайфуна
 
-Вы еще ничего не сказали, а доверие уже сломано.
+- decision: SKIP
+- total: 8
+- relevance: 0
+- viral_potential: 0
+- neuropravo_fit: 4
+- avatar_fit: 4
+- source: Business FM Telegram
+- url: https://t.me/BFMnews/71503
+- hook: Сотни российских туристов застряли в аэропортах Китая из-за тайфуна
+- reasons: есть практический правовой угол для НейроПраво
 
-Для человека это неприятно.
-Для бизнеса это может стоить клиента, записи, поставки или сделки.
+### 4. Выиграл в Minecraft — поступил в вуз?!
 
-Самое опасное здесь то, что вы можете не знать причину.
-Кто-то пожаловался. Алгоритм ошибся. Система увидела много звонков и решила, что вы подозрительны.
+- decision: SKIP
+- total: 6
+- relevance: 0
+- viral_potential: 2
+- neuropravo_fit: 0
+- avatar_fit: 4
+- source: Business FM Telegram
+- url: https://t.me/BFMnews/71512
+- hook: Выиграл в Minecraft — поступил в вуз
+- reasons: есть риск денег, доступа, связи, репутации или контроля, есть эмоциональный крючок для Reels
 
-Что делать?
-Попросите скрин предупреждения.
-Запишите дату и время звонка.
-Уточните, какое приложение или сервис поставили метку.
-Потом обращайтесь к оператору и в поддержку сервиса спокойно, с фактами.
+### 5. Минпросвещения назвало неадекватным желание ребенка попробовать мармелад в виде червей
 
-Репутация теперь есть даже у номера телефона.
-И если этот номер кормит бизнес, за ним нужно следить так же, как за отзывами и документами.
+- decision: SKIP
+- total: 6
+- relevance: 0
+- viral_potential: 2
+- neuropravo_fit: 0
+- avatar_fit: 4
+- source: Business FM Telegram
+- url: https://t.me/BFMnews/71508
+- hook: Минпросвещения назвало неадекватным желание ребенка попробовать мармелад в виде червей
+- reasons: есть эмоциональный крючок для Reels
+
+### 6. S7 запустила сервис чаевых бортпроводникам
+
+- decision: SKIP
+- total: 6
+- relevance: 0
+- viral_potential: 0
+- neuropravo_fit: 2
+- avatar_fit: 4
+- source: Business FM Telegram
+- url: https://t.me/BFMnews/71506
+- hook: S7 запустила сервис чаевых бортпроводникам
+- reasons: есть риск денег, доступа, связи, репутации или контроля, есть практический правовой угол для НейроПраво
+
+### 7. Ограничения в аэропортах Внуково, Домодедово и Жуковский сняты
+
+- decision: SKIP
+- total: 6
+- relevance: 0
+- viral_potential: 0
+- neuropravo_fit: 2
+- avatar_fit: 4
+- source: Business FM Telegram
+- url: https://t.me/BFMnews/71507
+- hook: Ограничения в аэропортах Внуково, Домодедово и Жуковский сняты
+- reasons: есть практический правовой угол для НейроПраво
+
+### 8. Попытка подать документы на гражданство длиною в год
+
+- decision: SKIP
+- total: 4
+- relevance: 0
+- viral_potential: 0
+- neuropravo_fit: 0
+- avatar_fit: 4
+- source: Business FM Telegram
+- url: https://t.me/BFMnews/71514
+- hook: Попытка подать документы на гражданство длиною в год
+- reasons: нет сильных сигналов
+
+### 9. Посол Украины в США подала в отставку по собственному желанию
+
+- decision: SKIP
+- total: 4
+- relevance: 0
+- viral_potential: 0
+- neuropravo_fit: 0
+- avatar_fit: 4
+- source: Business FM Telegram
+- url: https://t.me/BFMnews/71505
+- hook: Посол Украины в США подала в отставку по собственному желанию
+- reasons: нет сильных сигналов
+
+### 10. Без электричества из-за урагана остались более 40 тысяч жителей Ленинградской области
+
+- decision: SKIP
+- total: 4
+- relevance: 0
+- viral_potential: 0
+- neuropravo_fit: 0
+- avatar_fit: 4
+- source: Business FM Telegram
+- url: https://t.me/BFMnews/71500
+- hook: Без электричества из-за урагана остались более 40 тысяч жителей Ленинградской области
+- reasons: нет сильных сигналов
