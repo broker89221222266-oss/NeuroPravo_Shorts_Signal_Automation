@@ -14,6 +14,7 @@ from typing import Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = ROOT / "config" / "sources.json"
+VIRAL_RULES_PATH = ROOT / "config" / "viral_signal_rules.json"
 DEFAULT_INPUT = ROOT / "data" / "input_videos.csv"
 DEFAULT_OUT = ROOT / "output"
 
@@ -86,6 +87,13 @@ class ScoredCard:
 
 def load_config() -> dict:
     with CONFIG_PATH.open("r", encoding="utf-8-sig") as f:
+        return json.load(f)
+
+
+def load_viral_rules() -> dict:
+    if not VIRAL_RULES_PATH.exists():
+        return {}
+    with VIRAL_RULES_PATH.open("r", encoding="utf-8-sig") as f:
         return json.load(f)
 
 
@@ -440,6 +448,114 @@ def quality_counters(cards: list[ScoredCard], issues: list[ValidationIssue], con
     }
 
 
+def infer_discovery_window(cards: list[ScoredCard]) -> str:
+    if not cards:
+        return "empty"
+    ages = [
+        days_old(datetime.strptime(card.published_at, "%Y-%m-%d").date())
+        for card in cards
+    ]
+    max_age = max(ages)
+    if max_age <= 3:
+        return "24-72h"
+    if max_age <= 7:
+        return "7d"
+    if max_age <= 30:
+        return "30d"
+    return "mixed_or_stale"
+
+
+def visible_signal_rows(cards: list[ScoredCard]) -> int:
+    return sum(1 for card in cards if card.views >= 5000 or (card.views >= 800 and card.neuropravo_fit_score >= 68))
+
+
+def write_discovery_manifest(
+    cards: list[ScoredCard],
+    issues: list[ValidationIssue],
+    output_path: Path,
+    input_path: Path,
+    min_score: float,
+    config: dict,
+    viral_rules: dict,
+    metrics_mode: str,
+) -> None:
+    counters = quality_counters(cards, issues, config)
+    selected = [card for card in cards if card.selected]
+    topics_count = len(counters["topics"])
+    visible_rows = visible_signal_rows(cards)
+    acceptance = viral_rules.get("source_acquisition", {}).get("batch_acceptance", {})
+    min_topics = int(acceptance.get("minimum_topics", 3))
+    min_rows = int(acceptance.get("minimum_candidates_before_scoring", 12))
+    min_visible = int(acceptance.get("minimum_visible_signal_rows", 5))
+    inferred_window = infer_discovery_window(cards)
+    blockers: list[str] = []
+
+    if len(cards) < min_rows:
+        blockers.append(f"слишком мало кандидатов: {len(cards)} < {min_rows}")
+    if topics_count < min_topics:
+        blockers.append(f"мало тем: {topics_count} < {min_topics}")
+    if visible_rows < min_visible:
+        blockers.append(f"мало строк с видимым публичным сигналом: {visible_rows} < {min_visible}")
+    if issues:
+        blockers.append(f"есть ошибки валидации: {len(issues)}")
+
+    gate_status = "SOURCE-REVIEW-READY" if not blockers and selected else "NEEDS-BETTER-SOURCE-BATCH"
+
+    lines = [
+        "# Discovery Manifest",
+        "",
+        f"Входной CSV: `{input_path}`",
+        f"Окно свежести по данным: `{inferred_window}`",
+        f"Metrics mode: `{metrics_mode}`",
+        f"Порог final_score: `{min_score:g}`",
+        f"Сгенерировано локально: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        "",
+        "Это паспорт партии для Окна 1. Он проверяет источник и регулярность поиска до сценариев.",
+        "",
+        "## Gate",
+        "",
+        f"- Status: `{gate_status}`",
+        f"- Всего кандидатов: {len(cards)}",
+        f"- Отобрано генератором: {len(selected)}",
+        f"- Тем покрыто: {topics_count}",
+        f"- Строк с видимым публичным сигналом: {visible_rows}",
+        f"- Ошибок валидации: {len(issues)}",
+        "",
+        "## Acceptance checks",
+        "",
+        f"- Минимум кандидатов до scoring: {min_rows}",
+        f"- Минимум тем: {min_topics}",
+        f"- Минимум строк с видимым сигналом: {min_visible}",
+        "- Обязательные файлы после прогона: `discovery_manifest.md`, `source_candidates_review.md`, `batch_summary.md`",
+        "",
+        "## Blockers",
+        "",
+    ]
+    if blockers:
+        lines.extend(f"- {blocker}" for blocker in blockers)
+    else:
+        lines.append("- Нет. Партию можно читать в `source_candidates_review.md`.")
+
+    lines.extend([
+        "",
+        "## Controller decision",
+        "",
+    ])
+    if gate_status == "SOURCE-REVIEW-READY":
+        lines.append("Окно 1 может передать только кандидатов из `source_candidates_review.md` со статусом `ЗАЛЕТЕВШИЙ-КАНДИДАТ` или вручную подтвержденным `ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ`.")
+    else:
+        lines.append("Не передавать Окну 2 на сценарии. Сначала улучшить источник, добрать темы/метрики/свежесть и пересобрать партию.")
+
+    lines.extend(["", "## Freshness windows to maintain", ""])
+    for window in viral_rules.get("freshness_windows", []):
+        lines.append(
+            f"- `{window.get('label')}`: {window.get('goal')} "
+            f"CSV `{window.get('source_path_pattern')}`, output `{window.get('output_path_pattern')}`."
+        )
+
+    output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def write_batch_summary(cards: list[ScoredCard], issues: list[ValidationIssue], output_path: Path, input_path: Path, min_score: float, config: dict, metrics_mode: str) -> None:
     selected = [card for card in cards if card.selected]
     rejected = [card for card in cards if not card.selected]
@@ -703,6 +819,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     config = load_config()
+    viral_rules = load_viral_rules()
     input_path = Path(args.input)
     if not input_path.is_absolute():
         input_path = ROOT / input_path
@@ -718,6 +835,7 @@ def main() -> int:
     cards.sort(key=lambda card: card.final_score, reverse=True)
 
     write_markdown(cards, issues, out_dir / "scenario_cards.md", input_path, min_score, metrics_mode)
+    write_discovery_manifest(cards, issues, out_dir / "discovery_manifest.md", input_path, min_score, config, viral_rules, metrics_mode)
     write_batch_summary(cards, issues, out_dir / "batch_summary.md", input_path, min_score, config, metrics_mode)
     write_source_review(cards, issues, out_dir / "source_candidates_review.md", input_path, min_score, metrics_mode)
     write_json(cards, issues, out_dir / "scenario_cards.json")

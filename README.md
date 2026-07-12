@@ -21,6 +21,7 @@ output\...\source_candidates_review.md
 
 Операционная модель: `docs\Signal_Discovery_Operating_Model.md`.
 Правила сигнала: `config\viral_signal_rules.json`.
+Регулярный сбор источников: `docs\Recurring_Source_Acquisition.md`.
 
 Окно 1 отвечает за нахождение и проверку сигнала. Окно 2 получает задачу на сценарий только после source review.
 
@@ -43,6 +44,7 @@ python .\scripts\generate_cards.py --input data\input_videos.csv --out output
 
 ```text
 output\source_candidates_review.md
+output\discovery_manifest.md
 output\batch_summary.md
 output\scenario_cards.md
 output\scenario_cards.csv
@@ -50,6 +52,44 @@ output\scenario_cards.json
 output\validation_report.csv
 ```
 
+## Регулярный source acquisition
+
+Окно 1 обновляет не сценарии, а входные партии источников. Рабочие CSV лежат здесь:
+
+```text
+data\source_acquisition\24-72h\discovery_YYYY-MM-DD_24-72h.csv
+data\source_acquisition\7d\discovery_YYYY-MM-DD_7d.csv
+data\source_acquisition\30d\discovery_YYYY-MM-DD_30d.csv
+```
+
+Подробная инструкция: `docs\Recurring_Source_Acquisition.md`.
+
+24-72h fresh scan:
+
+```powershell
+python .\scripts\generate_cards.py --input data\source_acquisition\24-72h\discovery_2026-07-12_24-72h.csv --out output\discovery_2026-07-12_24-72h --min-score 55 --metrics-mode public_search
+```
+
+7d weekly scan:
+
+```powershell
+python .\scripts\generate_cards.py --input data\source_acquisition\7d\discovery_2026-07-12_7d.csv --out output\discovery_2026-07-12_7d --min-score 55 --metrics-mode public_search
+```
+
+30d monthly scan:
+
+```powershell
+python .\scripts\generate_cards.py --input data\source_acquisition\30d\discovery_2026-07-12_30d.csv --out output\discovery_2026-07-12_30d --min-score 55 --metrics-mode public_search
+```
+
+Первым всегда открывать:
+
+```text
+output\...\discovery_manifest.md
+output\...\source_candidates_review.md
+```
+
+Если `discovery_manifest.md` показывает `NEEDS-BETTER-SOURCE-BATCH`, Окно 2 не пишет сценарий. Нужно добрать источники, темы или метрики.
 ## Порог отбора и режим метрик
 
 Есть два рабочих режима.
@@ -152,10 +192,12 @@ python .\scripts\generate_cards.py --input data\manual_batches\sample_manual_bat
 Главный файл для быстрого просмотра теперь:
 
 ```text
+output\...\discovery_manifest.md
+output\...\source_candidates_review.md
 output\...\batch_summary.md
 ```
 
-В нем видно качество партии, платформы, темы, причины отсева, топ-10 по `final_score`, топ-5 по `neuropravo_fit_score` и блок `Смотреть первыми`.
+В `discovery_manifest.md` видно, годится ли партия как source-first batch. В `source_candidates_review.md` видны исходные ссылки и причины допуска. В `batch_summary.md` видно качество партии, платформы, темы, причины отсева, топ-10 по `final_score`, топ-5 по `neuropravo_fit_score` и блок `Смотреть первыми`.
 
 Подробная инструкция:
 
@@ -272,4 +314,5 @@ python .\scripts\generate_cards.py --input data\demos\mixed_manual_import_demo.c
 - LLM-вызов вместо локальной эвристики.
 
 Секреты, токены, cookies и ключи не хранить в GitHub, README, CSV или памяти проекта.
+
 

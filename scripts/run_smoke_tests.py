@@ -13,6 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SMOKE_ROOT = ROOT / "output" / "_smoke_tests"
 REQUIRED_OUTPUTS = (
+    "discovery_manifest.md",
     "scenario_cards.md",
     "scenario_cards.csv",
     "scenario_cards.json",
@@ -91,7 +92,12 @@ def validate_outputs(case: SmokeCase, out_dir: Path, stdout: str) -> tuple[int, 
         raise SmokeFailure(f"{case.name}: CSV row count does not match generator output")
 
     summary = (out_dir / "batch_summary.md").read_text(encoding="utf-8")
+    manifest = (out_dir / "discovery_manifest.md").read_text(encoding="utf-8")
     source_review = (out_dir / "source_candidates_review.md").read_text(encoding="utf-8")
+    if "Discovery Manifest" not in manifest:
+        raise SmokeFailure(f"{case.name}: discovery_manifest.md does not look valid")
+    if "SOURCE-REVIEW-READY" not in manifest and "NEEDS-BETTER-SOURCE-BATCH" not in manifest:
+        raise SmokeFailure(f"{case.name}: discovery manifest missing gate status")
     if "Source Candidates Review" not in source_review:
         raise SmokeFailure(f"{case.name}: source_candidates_review.md does not look valid")
     if "ЗАЛЕТЕВШИЙ-КАНДИДАТ" not in source_review and "ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ" not in source_review:

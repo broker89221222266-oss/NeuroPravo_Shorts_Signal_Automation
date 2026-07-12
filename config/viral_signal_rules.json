@@ -1,36 +1,111 @@
 ﻿{
-  "purpose": "Regularly find viral short-video signals before writing NeuroPravo scripts.",
-  "cadence": {
-    "daily_scan": "24-72 hours",
-    "twice_weekly_scan": "7 days",
-    "weekly_scan": "30 days",
-    "startup_mode": "3 scans per week"
-  },
-  "statuses": {
-    "viral_candidate": "Fresh, scored, relevant, with visible public signal and transferable mechanic.",
-    "potential_signal": "Interesting but incomplete metrics or approximate date; requires manual review.",
-    "reject": "Weak signal, weak fit, stale, high copy risk, or no transferable mechanic."
-  },
-  "minimum_review_fields": [
-    "source_url",
-    "platform",
-    "published_at",
-    "views",
-    "likes",
-    "comments",
-    "shares",
-    "saves",
-    "topic_hint",
-    "selection_reason",
-    "metrics_completeness",
-    "recency_quality",
-    "adaptation_distance"
-  ],
-  "controller_rules": [
-    "Do not assign script writing before source_candidates_review.md exists.",
-    "Do not treat a script as success unless the source signal is documented.",
-    "Window 1 owns discovery/scoring/source review.",
-    "Window 2 owns scripts only after approved signal.",
-    "Copy mechanics, not text, character, phrase order, or conclusion."
-  ]
+    "purpose":  "Regularly find viral short-video signals before writing NeuroPravo scripts.",
+    "cadence":  {
+                    "daily_scan":  "24-72 hours",
+                    "twice_weekly_scan":  "7 days",
+                    "weekly_scan":  "30 days",
+                    "startup_mode":  "3 scans per week"
+                },
+    "freshness_windows":  [
+                              {
+                                  "id":  "early_spike_24_72h",
+                                  "label":  "24-72h",
+                                  "goal":  "Catch early spikes before they become obvious.",
+                                  "minimum_rows":  8,
+                                  "recommended_rows":  15,
+                                  "metrics_priority":  [
+                                                           "published_at",
+                                                           "views",
+                                                           "view_velocity_note",
+                                                           "topic_hint"
+                                                       ],
+                                  "source_path_pattern":  "data/source_acquisition/24-72h/discovery_YYYY-MM-DD_24-72h.csv",
+                                  "output_path_pattern":  "output/discovery_YYYY-MM-DD_24-72h"
+                              },
+                              {
+                                  "id":  "weekly_signal_7d",
+                                  "label":  "7d",
+                                  "goal":  "Find candidates with enough traction and still-current context.",
+                                  "minimum_rows":  12,
+                                  "recommended_rows":  25,
+                                  "metrics_priority":  [
+                                                           "published_at",
+                                                           "views",
+                                                           "likes",
+                                                           "comments",
+                                                           "topic_hint"
+                                                       ],
+                                  "source_path_pattern":  "data/source_acquisition/7d/discovery_YYYY-MM-DD_7d.csv",
+                                  "output_path_pattern":  "output/discovery_YYYY-MM-DD_7d"
+                              },
+                              {
+                                  "id":  "market_map_30d",
+                                  "label":  "30d",
+                                  "goal":  "Map durable themes and compare topics across the month.",
+                                  "minimum_rows":  20,
+                                  "recommended_rows":  50,
+                                  "metrics_priority":  [
+                                                           "published_at",
+                                                           "views",
+                                                           "likes",
+                                                           "comments",
+                                                           "topic_hint",
+                                                           "notes"
+                                                       ],
+                                  "source_path_pattern":  "data/source_acquisition/30d/discovery_YYYY-MM-DD_30d.csv",
+                                  "output_path_pattern":  "output/discovery_YYYY-MM-DD_30d"
+                              }
+                          ],
+    "source_acquisition":  {
+                               "startup_safe_route":  "manual_public_search",
+                               "allowed_without_extra_approval":  [
+                                                                      "manual_public_search",
+                                                                      "viewstats_manual_export",
+                                                                      "apify_csv_already_exported_by_user"
+                                                                  ],
+                               "requires_explicit_approval":  [
+                                                                  "youtube_data_api",
+                                                                  "apify_actor_run",
+                                                                  "google_sheets_sync",
+                                                                  "tiktok_login",
+                                                                  "instagram_login"
+                                                              ],
+                               "batch_acceptance":  {
+                                                        "minimum_topics":  3,
+                                                        "minimum_candidates_before_scoring":  12,
+                                                        "minimum_visible_signal_rows":  5,
+                                                        "required_outputs":  [
+                                                                                 "discovery_manifest.md",
+                                                                                 "source_candidates_review.md",
+                                                                                 "batch_summary.md"
+                                                                             ]
+                                                    }
+                           },
+    "statuses":  {
+                     "viral_candidate":  "Fresh, scored, relevant, with visible public signal and transferable mechanic.",
+                     "potential_signal":  "Interesting but incomplete metrics or approximate date; requires manual review.",
+                     "reject":  "Weak signal, weak fit, stale, high copy risk, or no transferable mechanic."
+                 },
+    "minimum_review_fields":  [
+                                  "source_url",
+                                  "platform",
+                                  "published_at",
+                                  "views",
+                                  "likes",
+                                  "comments",
+                                  "shares",
+                                  "saves",
+                                  "topic_hint",
+                                  "selection_reason",
+                                  "metrics_completeness",
+                                  "recency_quality",
+                                  "adaptation_distance"
+                              ],
+    "controller_rules":  [
+                             "Do not assign script writing before source_candidates_review.md exists.",
+                             "Do not treat a script as success unless the source signal is documented.",
+                             "Window 1 owns discovery/scoring/source review.",
+                             "Window 2 owns scripts only after approved signal.",
+                             "Copy mechanics, not text, character, phrase order, or conclusion."
+                         ]
 }
