@@ -1,0 +1,115 @@
+﻿{
+  "purpose": "Manual first-batch search queries for NeuroPravo short video signal collection",
+  "rules": {
+    "no_auto_scraping": true,
+    "no_login_required_sources": true,
+    "window_days": 30,
+    "primary_platform": "YouTube Shorts"
+  },
+  "groups": [
+    {
+      "id": "debts_receipt",
+      "name": "долги/расписка",
+      "topic_hint": "долг",
+      "queries": [
+        "долг по расписке shorts",
+        "дал деньги в долг не возвращает shorts",
+        "занял деньги без расписки shorts",
+        "должник пропал shorts",
+        "как вернуть долг shorts",
+        "поверил на слово деньги shorts"
+      ]
+    },
+    {
+      "id": "contract_nonpayment",
+      "name": "договор/не заплатили",
+      "topic_hint": "договор",
+      "queries": [
+        "клиент не заплатил shorts",
+        "не заплатили за работу shorts",
+        "договорились на словах shorts",
+        "подписал договор не глядя shorts",
+        "ошибка в договоре shorts",
+        "заказчик кинул исполнителя shorts"
+      ]
+    },
+    {
+      "id": "repair_builders",
+      "name": "ремонт/строители",
+      "topic_hint": "ремонт",
+      "queries": [
+        "строители взяли аванс и пропали shorts",
+        "ремонт без договора shorts",
+        "мастер испортил ремонт shorts",
+        "ремонт спор с подрядчиком shorts",
+        "подрядчик не доделал ремонт shorts",
+        "ремонт деньги вернули shorts"
+      ]
+    },
+    {
+      "id": "developer",
+      "name": "застройщик",
+      "topic_hint": "застройщик",
+      "queries": [
+        "застройщик задержал сдачу shorts",
+        "квартира с дефектами застройщик shorts",
+        "приемка квартиры ошибки shorts",
+        "претензия застройщику shorts",
+        "застройщик не устраняет недостатки shorts",
+        "дду просрочка shorts"
+      ]
+    },
+    {
+      "id": "marketplaces",
+      "name": "маркетплейсы",
+      "topic_hint": "маркетплейс",
+      "queries": [
+        "wildberries продавец спор shorts",
+        "маркетплейс удержал деньги shorts",
+        "покупатель вернул не тот товар shorts",
+        "селлер потерял деньги shorts",
+        "ozon продавец спор shorts",
+        "wildberries штраф продавцу shorts"
+      ]
+    },
+    {
+      "id": "product_return",
+      "name": "возврат товара",
+      "topic_hint": "возврат товара",
+      "queries": [
+        "магазин отказал в возврате shorts",
+        "возврат товара спор shorts",
+        "купил товар не возвращают деньги shorts",
+        "права покупателя возврат shorts",
+        "вернул товар отказали shorts",
+        "товар с браком возврат shorts"
+      ]
+    },
+    {
+      "id": "inheritance",
+      "name": "наследство",
+      "topic_hint": "наследство",
+      "queries": [
+        "наследство спор родственников shorts",
+        "квартира наследство конфликт shorts",
+        "завещание спор shorts",
+        "наследники поссорились shorts",
+        "делят наследство shorts",
+        "наследство без завещания shorts"
+      ]
+    },
+    {
+      "id": "alimony",
+      "name": "алименты",
+      "topic_hint": "алименты",
+      "queries": [
+        "алименты не платит shorts",
+        "договорились об алиментах устно shorts",
+        "бывший муж не платит алименты shorts",
+        "спор по алиментам shorts",
+        "алименты долг shorts",
+        "алименты договоренность shorts"
+      ]
+    }
+  ]
+}
