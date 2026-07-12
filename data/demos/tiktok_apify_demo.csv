@@ -1,0 +1,4 @@
+﻿source_url,platform,published_at,author,title_or_caption,views,likes,comments,shares,saves,duration_sec,topic_hint,notes
+https://tiktok.com/@demo/video/estate,TikTok,2026-07-05,Семейные разборы,"Родственники спорят из-за квартиры после смерти бабушки",190000,8700,980,1200,1500,63,наследство,"Apify-like export: есть shares и saves"
+https://tiktok.com/@demo/video/marketplace,TikTok,2026-07-09,Селлерский дневник,"Покупатель вернул не тот товар, продавец спорит с площадкой",77000,4100,510,640,900,49,маркетплейс,"Можно адаптировать без копирования текста"
+https://tiktok.com/@demo/video/fun,TikTok,2026-07-10,Мемы района,"Сосед громко поет в подъезде",12000,900,8,30,12,18,,"Слабая юридическая привязка, должен отсеяться по fit"

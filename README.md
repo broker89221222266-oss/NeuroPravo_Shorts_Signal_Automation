@@ -1,62 +1,146 @@
-﻿# MVP: поиск залетевших коротких видео для НейроПраво
+﻿# NeuroPravo Shorts Signal Automation
 
-Цель прототипа: собрать кандидаты коротких роликов, оценить их силу, отфильтровать по темам НейроПраво и получить карточки для ручного выбора Александром.
+Локальный import-first инструмент для поиска и разбора залетевших коротких видео под сценарии НейроПраво.
 
-Этот MVP ничего не публикует, не рендерит, не загружает в аккаунты и не отправляет данные во внешние сервисы. Сейчас он работает локально с CSV. Позже к нему можно подключить YouTube Data API, Apify, TikTok Research API или ручные экспорты.
+Инструмент ничего не публикует, не рендерит, не загружает в аккаунты и не подключает внешние API. На текущем этапе он берет готовый CSV из ручного импорта, Apify, ViewStats или другой выгрузки, валидирует строки, считает score и делает карточки сценариев.
 
-## Самый простой путь MVP
+## Быстрый запуск
 
-1. Сначала собираем кандидатов в `data/input_videos.csv`.
-2. Запускаем локальный генератор:
+1. Положите CSV в:
+
+```text
+D:\Projects\Others\NeuroPravo_Shorts_Signal_Automation\data\input_videos.csv
+```
+
+2. Запустите:
 
 ```powershell
 cd D:\Projects\Others\NeuroPravo_Shorts_Signal_Automation
-python .\scripts\generate_cards.py
+python .\scripts\generate_cards.py --input data\input_videos.csv --out output
 ```
 
-3. Смотрим результат:
+3. Результаты будут здесь:
 
 ```text
 output\scenario_cards.md
+output\scenario_cards.csv
+output\scenario_cards.json
+output\validation_report.csv
 ```
 
-## Почему так
+## Порог отбора
 
-- YouTube можно автоматизировать быстрее всего: официальный API умеет искать видео по дате, языку, региону и короткой длительности, но Shorts как отдельный тип он не гарантирует. Поэтому фильтр делаем по длительности, URL и ключевым словам.
-- TikTok/Instagram/VK/Дзен зависят от доступа, логина, лимитов и правил платформ. Быстрый путь - Apify или ручной CSV-экспорт на первом этапе.
-- Google Sheets/Airtable удобны позже. Для первого локального MVP CSV быстрее, прозрачнее и не требует ключей.
+По умолчанию отбираются ролики с `final_score >= 70` и достаточной привязкой к темам НейроПраво.
 
-## Структура
+Изменить порог:
+
+```powershell
+python .\scripts\generate_cards.py --input data\input_videos.csv --out output --min-score 70
+python .\scripts\generate_cards.py --input data\input_videos.csv --out output --min-score 80
+```
+
+## CSV-шаблон
+
+Шаблон лежит здесь:
 
 ```text
-config\sources.json          - источники, ключевые темы, ограничения
-data\input_videos.csv        - входные ролики-кандидаты
-prompts\ai_filter_prompt.md  - промт для AI-фильтра и генерации
-templates\scenario_card.md   - формат итоговой карточки
-scripts\generate_cards.py    - локальная оценка и черновая генерация карточек
-output\scenario_cards.md     - результат после запуска
+data\templates\import_template.csv
 ```
 
-## Что будет на выходе
+Обязательные колонки:
 
-Для каждого подходящего ролика создается карточка:
+```text
+source_url
+platform
+published_at
+author
+title_or_caption
+views
+likes
+comments
+shares
+saves
+duration_sec
+topic_hint
+notes
+```
 
-- исходный ролик;
-- сила ролика;
-- почему мог залететь;
-- конфликт;
-- новая тема для НейроПраво;
-- hook;
-- структура;
-- сценарий на 1,5-2 минуты в 6-10 плотных абзацах;
-- описание, название и CTA.
+Разрешенные `platform`:
 
-## Следующий уровень автоматизации
+```text
+YouTube Shorts
+TikTok
+Instagram Reels
+VK Clips
+Dzen
+ViewStats
+Apify
+Manual
+```
 
-1. YouTube Data API: запросы по темам, `publishedAfter`, `videoDuration=short`, `order=viewCount/date`, сбор статистики через `videos.list`.
-2. Apify: TikTok/Instagram/Reels/VK/Дзен там, где официальные API неудобны.
-3. AI-слой: заменить локальную эвристику на LLM-вызов, но оставить этот формат карточки как контракт.
-4. Хранилище: CSV -> Google Sheets/Airtable, если нужен совместный ручной отбор.
+Дата: `YYYY-MM-DD`. Инструмент отсекает строки старше 30 дней и будущие даты.
 
+Числа можно писать обычным числом, пустые значения считаются нулем. Поддерживаются короткие формы вроде `12k`, `1.5m`, `12к`, `1.5м`.
 
+## Demo CSV
 
+Проверочные файлы:
+
+```text
+data\demos\youtube_shorts_demo.csv
+data\demos\tiktok_apify_demo.csv
+data\demos\mixed_manual_import_demo.csv
+```
+
+Запуск YouTube Shorts demo:
+
+```powershell
+python .\scripts\generate_cards.py --input data\demos\youtube_shorts_demo.csv --out output\youtube_demo
+```
+
+Запуск TikTok/Apify demo:
+
+```powershell
+python .\scripts\generate_cards.py --input data\demos\tiktok_apify_demo.csv --out output\tiktok_demo
+```
+
+Запуск mixed manual demo:
+
+```powershell
+python .\scripts\generate_cards.py --input data\demos\mixed_manual_import_demo.csv --out output\mixed_demo
+```
+
+## Scoring
+
+Для каждого ролика считаются:
+
+- `raw_score`: просмотры + комментарии x 30 + лайки x 3 + репосты x 30 + сохранения x 40;
+- `engagement_score`: вовлеченность относительно просмотров;
+- `recency_score`: свежесть внутри 30-дневного окна;
+- `neuropravo_fit_score`: совпадение с темами, конфликтами и legal/biz-сигналами;
+- `final_score`: итоговый score 0-100.
+
+Каждая строка получает `selection_reason` и, если отсеяна, `rejection_reasons`.
+
+## Формат сценариев
+
+Сценарии пишутся компактно: 6 плотных абзацев, без лесенки по одному предложению в строке.
+
+Правила безопасности:
+
+- не копировать чужой текст;
+- не обещать юридический результат;
+- не писать `100% выиграете`;
+- не давать индивидуальную юридическую консультацию;
+- сохранять ручной финальный выбор Александра.
+
+## Что можно подключить позже
+
+Только отдельной командой Александра:
+
+- YouTube Data API;
+- Apify;
+- Google Sheets / Airtable;
+- LLM-вызов вместо локальной эвристики.
+
+Секреты, токены, cookies и ключи не хранить в GitHub, README, CSV или памяти проекта.

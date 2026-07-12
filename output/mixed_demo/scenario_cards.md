@@ -1,6 +1,6 @@
 # Карточки сценариев НейроПраво
 
-Входной CSV: `D:\Projects\Others\NeuroPravo_Shorts_Signal_Automation\data\input_videos.csv`
+Входной CSV: `D:\Projects\Others\NeuroPravo_Shorts_Signal_Automation\data\demos\mixed_manual_import_demo.csv`
 Порог final_score: `70`
 Сгенерировано локально: 2026-07-12 14:15
 

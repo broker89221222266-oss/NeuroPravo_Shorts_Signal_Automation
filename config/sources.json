@@ -1,38 +1,39 @@
-{
-  "project": "NeuroPravo short video research MVP",
+﻿{
+  "project": "NeuroPravo short video signal automation",
   "window_days": 30,
+  "default_min_score": 70,
   "manual_review_required": true,
   "publishing_allowed": false,
   "rendering_allowed": false,
   "external_upload_allowed": false,
-  "platforms": [
-    {
-      "name": "YouTube Shorts",
-      "mvp_route": "YouTube Data API or manual CSV export",
-      "automation_level": "high",
-      "notes": "Use publishedAfter, relevanceLanguage=ru, regionCode=RU, type=video, videoDuration=short; Shorts detection remains approximate."
-    },
-    {
-      "name": "TikTok",
-      "mvp_route": "Apify or TikTok Research API where access is available",
-      "automation_level": "medium",
-      "notes": "Official research access is restricted; Apify can be faster for MVP, but platform limits and legal/ToS risk must be reviewed."
-    },
-    {
-      "name": "Instagram Reels",
-      "mvp_route": "Apify or manual export",
-      "automation_level": "medium-low",
-      "notes": "Often depends on login/cookies and rate limits. Keep as phase 2."
-    },
-    {
-      "name": "VK Clips / Dzen",
-      "mvp_route": "manual export first, API/scraper later",
-      "automation_level": "low-medium",
-      "notes": "Use after YouTube/TikTok proves the pipeline."
-    }
+  "allowed_platforms": [
+    "YouTube Shorts",
+    "TikTok",
+    "Instagram Reels",
+    "VK Clips",
+    "Dzen",
+    "ViewStats",
+    "Apify",
+    "Manual"
+  ],
+  "required_fields": [
+    "source_url",
+    "platform",
+    "published_at",
+    "author",
+    "title_or_caption",
+    "views",
+    "likes",
+    "comments",
+    "shares",
+    "saves",
+    "duration_sec",
+    "topic_hint",
+    "notes"
   ],
   "topics": [
     "долги",
+    "долг",
     "договор",
     "застройщик",
     "ремонт",
@@ -49,15 +50,38 @@
     "подписал не глядя",
     "думал что прав но проиграл"
   ],
-  "scoring": {
-    "with_shares_and_saves": "views + comments * 20 + shares * 30 + saves * 40",
-    "without_shares_or_saves": "views + comments * 30 + likes * 3",
-    "relative_boost": "strength / max(author_average_views, 1)"
+  "fit_signals": [
+    "деньги",
+    "долг",
+    "договор",
+    "аванс",
+    "клиент",
+    "оплата",
+    "срок",
+    "переписка",
+    "документы",
+    "чек",
+    "возврат",
+    "спор",
+    "наследство",
+    "алименты",
+    "ремонт",
+    "маркетплейс",
+    "застройщик",
+    "подписал",
+    "обещал",
+    "устно"
+  ],
+  "selection_rules": {
+    "min_final_score": 70,
+    "min_neuropravo_fit_score": 40,
+    "max_duration_sec": 180
   },
-  "minimums": {
-    "relative_boost": 1.5,
-    "conflict_score": 2,
-    "neuropravo_fit_score": 2
+  "scoring": {
+    "raw_score": "views + comments * 30 + likes * 3 + shares * 30 + saves * 40",
+    "engagement_score": "normalized engagement per view, capped at 100",
+    "recency_score": "100 for today, linearly down to 0 after window_days",
+    "neuropravo_fit_score": "topic and conflict signal match, capped at 100",
+    "final_score": "raw_score 35% + engagement_score 20% + recency_score 20% + neuropravo_fit_score 25%"
   }
 }
-
