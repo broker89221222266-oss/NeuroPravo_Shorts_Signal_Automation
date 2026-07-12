@@ -5,6 +5,7 @@ import csv
 import json
 import math
 import re
+from collections import Counter
 from dataclasses import asdict, dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -74,6 +75,10 @@ class ScoredCard:
     video_description: str
     video_title: str
     cta: str
+    editorial_decision: str
+    why_not_copying: str
+    what_to_change_for_neuropravo: str
+    legal_safe_boundary: str
 
 
 def load_config() -> dict:
@@ -166,8 +171,7 @@ def load_rows(input_path: Path, config: dict) -> tuple[list[ImportRow], list[Val
                 age = days_old(published_at)
                 if age < 0:
                     issues.append(ValidationIssue(index, "published_at", "дата публикации не может быть в будущем"))
-                elif age > window_days:
-                    issues.append(ValidationIssue(index, "published_at", f"дата старше {window_days} дней"))
+
 
             views = parse_number(row.get("views", ""), "views", index, issues)
             likes = parse_number(row.get("likes", ""), "likes", index, issues)
@@ -284,6 +288,14 @@ def compact_script(row: ImportRow) -> str:
     )
 
 
+def editorial_decision(selected: bool, final: float, fit: float, rejection: list[str]) -> str:
+    if selected and final >= 82 and fit >= 55:
+        return "брать"
+    if selected or (final >= 65 and fit >= 40 and not any("дата старше" in reason for reason in rejection)):
+        return "подумать"
+    return "отложить"
+
+
 def build_card(row: ImportRow, config: dict, min_score: float) -> ScoredCard:
     raw = raw_score(row)
     engagement = engagement_score(row)
@@ -333,7 +345,87 @@ def build_card(row: ImportRow, config: dict, min_score: float) -> ScoredCard:
         video_description="Разбор бытовой или предпринимательской ошибки: почему договоренности лучше фиксировать до конфликта, а не после.",
         video_title=f"{topic}: ошибка, которая всплывает слишком поздно",
         cta="Смотрите на документы, даты, суммы и переписку. В споре часто решает не ощущение правоты, а следы договоренности.",
+        editorial_decision=editorial_decision(selected, final, fit, rejection),
+        why_not_copying="Берем только механику: конфликт, темп, боль и поворот. Текст, примеры, формулировки и вывод пересобираются заново под НейроПраво.",
+        what_to_change_for_neuropravo=f"Сместить фокус с чужой истории на практический риск в теме `{topic}`: деньги, сроки, документы, переписка и доказательства.",
+        legal_safe_boundary="Не обещать результат, не разбирать персональное дело зрителя и не давать универсальную инструкцию. Говорить как о типовой ситуации: важны документы, даты, суммы и детали.",
     )
+
+
+def topic_label(card: ScoredCard) -> str:
+    return (card.topic_hint or "без темы").strip().lower()
+
+
+def quality_counters(cards: list[ScoredCard], issues: list[ValidationIssue], config: dict) -> dict:
+    rows_without_views = sum(1 for card in cards if card.views <= 0)
+    rows_without_reactions = sum(1 for card in cards if card.likes <= 0 and card.comments <= 0)
+    rejection_counter = Counter(reason for card in cards for reason in card.rejection_reasons)
+    return {
+        "total_videos": len(cards),
+        "platforms": Counter(card.platform for card in cards),
+        "topics": Counter(topic_label(card) for card in cards),
+        "older_than_window": sum(1 for card in cards if days_old(datetime.strptime(card.published_at, "%Y-%m-%d").date()) > int(config["window_days"])),
+        "without_views": rows_without_views,
+        "without_likes_or_comments": rows_without_reactions,
+        "rejection_reasons": rejection_counter,
+    }
+
+
+def write_batch_summary(cards: list[ScoredCard], issues: list[ValidationIssue], output_path: Path, input_path: Path, min_score: float, config: dict) -> None:
+    selected = [card for card in cards if card.selected]
+    rejected = [card for card in cards if not card.selected]
+    counters = quality_counters(cards, issues, config)
+    top_final = sorted(cards, key=lambda card: card.final_score, reverse=True)[:10]
+    top_fit = sorted(cards, key=lambda card: card.neuropravo_fit_score, reverse=True)[:5]
+    first_watch = [card for card in top_final if card.editorial_decision in {"брать", "подумать"}][:10]
+
+    lines = [
+        "# Batch Summary",
+        "",
+        f"Входной CSV: `{input_path}`",
+        f"Порог final_score: `{min_score:g}`",
+        f"Сгенерировано локально: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        "",
+        "Это редакторская сводка для быстрого выбора идей. Ничего не публикует и не рендерит.",
+        "",
+        "## Качество партии",
+        "",
+        f"- Всего роликов: {counters['total_videos']}",
+        f"- Отобрано: {len(selected)}",
+        f"- Отсеяно: {len(rejected)}",
+        f"- Ошибок валидации: {len(issues)}",
+        f"- Роликов старше {config['window_days']} дней: {counters['older_than_window']}",
+        f"- Без просмотров: {counters['without_views']}",
+        f"- Без лайков и комментариев: {counters['without_likes_or_comments']}",
+        "",
+        "## Платформы",
+        "",
+    ]
+    for platform, count in counters["platforms"].most_common():
+        lines.append(f"- {platform}: {count}")
+    lines.extend(["", "## Темы", ""])
+    for topic, count in counters["topics"].most_common():
+        lines.append(f"- {topic}: {count}")
+    lines.extend(["", "## Причины отсева", ""])
+    if counters["rejection_reasons"]:
+        for reason, count in counters["rejection_reasons"].most_common():
+            lines.append(f"- {reason}: {count}")
+    else:
+        lines.append("- Нет отсева по правилам.")
+    lines.extend(["", "## Смотреть первыми", ""])
+    if first_watch:
+        for index, card in enumerate(first_watch, start=1):
+            lines.append(f"{index}. {card.editorial_decision.upper()} | final={card.final_score} | fit={card.neuropravo_fit_score} | {card.platform} | {card.video_title}")
+            lines.append(f"   {card.source_url}")
+    else:
+        lines.append("Нет кандидатов уровня 'брать' или 'подумать'. Лучше собрать новую партию.")
+    lines.extend(["", "## Топ-10 по final_score", ""])
+    for index, card in enumerate(top_final, start=1):
+        lines.append(f"{index}. final={card.final_score} | fit={card.neuropravo_fit_score} | {card.editorial_decision} | {card.platform} | {card.source_url}")
+    lines.extend(["", "## Топ-5 по neuropravo_fit_score", ""])
+    for index, card in enumerate(top_fit, start=1):
+        lines.append(f"{index}. fit={card.neuropravo_fit_score} | final={card.final_score} | {card.editorial_decision} | {card.topic_hint} | {card.source_url}")
+    output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def write_markdown(cards: list[ScoredCard], issues: list[ValidationIssue], output_path: Path, input_path: Path, min_score: float) -> None:
@@ -380,6 +472,7 @@ def write_markdown(cards: list[ScoredCard], issues: list[ValidationIssue], outpu
                 f"neuropravo_fit_score: {card.neuropravo_fit_score}",
                 f"final_score: {card.final_score}",
                 f"Решение: {card.selection_reason}",
+                f"Редакторское решение: {card.editorial_decision}",
                 "",
                 "## Почему мог залететь",
                 "",
@@ -392,6 +485,18 @@ def write_markdown(cards: list[ScoredCard], issues: list[ValidationIssue], outpu
                 "## Новая тема для НейроПраво",
                 "",
                 card.new_topic,
+                "",
+                "## Почему это не копирование",
+                "",
+                card.why_not_copying,
+                "",
+                "## Что изменить под НейроПраво",
+                "",
+                card.what_to_change_for_neuropravo,
+                "",
+                "## Юридически безопасная граница",
+                "",
+                card.legal_safe_boundary,
                 "",
                 "## Hook",
                 "",
@@ -470,6 +575,7 @@ def main() -> int:
     cards.sort(key=lambda card: card.final_score, reverse=True)
 
     write_markdown(cards, issues, out_dir / "scenario_cards.md", input_path, min_score)
+    write_batch_summary(cards, issues, out_dir / "batch_summary.md", input_path, min_score, config)
     write_json(cards, issues, out_dir / "scenario_cards.json")
     if cards:
         write_csv(cards, out_dir / "scenario_cards.csv")
@@ -487,3 +593,8 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+
+
+

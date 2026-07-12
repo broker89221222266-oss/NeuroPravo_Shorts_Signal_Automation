@@ -82,6 +82,47 @@ Manual
 
 Числа можно писать обычным числом, пустые значения считаются нулем. Поддерживаются короткие формы вроде `12k`, `1.5m`, `12к`, `1.5м`.
 
+
+## Ручные редакторские партии
+
+Для первой реальной партии 20-50 роликов используйте папку:
+
+```text
+data\manual_batches\
+```
+
+Шаблон партии:
+
+```text
+data\manual_batches\batch_template_YYYY-MM-DD.csv
+```
+
+Пример с demo-данными:
+
+```text
+data\manual_batches\sample_manual_batch.csv
+```
+
+Запуск sample batch:
+
+```powershell
+python .\scripts\generate_cards.py --input data\manual_batches\sample_manual_batch.csv --out output\sample_manual_batch --min-score 70
+```
+
+Главный файл для быстрого просмотра теперь:
+
+```text
+output\...\batch_summary.md
+```
+
+В нем видно качество партии, платформы, темы, причины отсева, топ-10 по `final_score`, топ-5 по `neuropravo_fit_score` и блок `Смотреть первыми`.
+
+Подробная инструкция:
+
+```text
+docs\Manual_Import_Workflow.md
+```
+
 ## Demo CSV
 
 Проверочные файлы:
@@ -144,3 +185,4 @@ python .\scripts\generate_cards.py --input data\demos\mixed_manual_import_demo.c
 - LLM-вызов вместо локальной эвристики.
 
 Секреты, токены, cookies и ключи не хранить в GitHub, README, CSV или памяти проекта.
+
