@@ -448,7 +448,15 @@ def quality_counters(cards: list[ScoredCard], issues: list[ValidationIssue], con
     }
 
 
-def infer_discovery_window(cards: list[ScoredCard]) -> str:
+def infer_discovery_window(cards: list[ScoredCard], input_path: Path | None = None) -> str:
+    if input_path is not None:
+        path_text = str(input_path).replace("\\", "/").lower()
+        if "/24-72h/" in path_text or "_24-72h" in path_text:
+            return "24-72h"
+        if "/7d/" in path_text or "_7d" in path_text:
+            return "7d"
+        if "/30d/" in path_text or "_30d" in path_text:
+            return "30d"
     if not cards:
         return "empty"
     ages = [
@@ -487,7 +495,7 @@ def write_discovery_manifest(
     min_topics = int(acceptance.get("minimum_topics", 3))
     min_rows = int(acceptance.get("minimum_candidates_before_scoring", 12))
     min_visible = int(acceptance.get("minimum_visible_signal_rows", 5))
-    inferred_window = infer_discovery_window(cards)
+    inferred_window = infer_discovery_window(cards, input_path)
     blockers: list[str] = []
 
     if len(cards) < min_rows:
