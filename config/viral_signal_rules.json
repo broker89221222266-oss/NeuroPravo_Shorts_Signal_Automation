@@ -1,0 +1,36 @@
+﻿{
+  "purpose": "Regularly find viral short-video signals before writing NeuroPravo scripts.",
+  "cadence": {
+    "daily_scan": "24-72 hours",
+    "twice_weekly_scan": "7 days",
+    "weekly_scan": "30 days",
+    "startup_mode": "3 scans per week"
+  },
+  "statuses": {
+    "viral_candidate": "Fresh, scored, relevant, with visible public signal and transferable mechanic.",
+    "potential_signal": "Interesting but incomplete metrics or approximate date; requires manual review.",
+    "reject": "Weak signal, weak fit, stale, high copy risk, or no transferable mechanic."
+  },
+  "minimum_review_fields": [
+    "source_url",
+    "platform",
+    "published_at",
+    "views",
+    "likes",
+    "comments",
+    "shares",
+    "saves",
+    "topic_hint",
+    "selection_reason",
+    "metrics_completeness",
+    "recency_quality",
+    "adaptation_distance"
+  ],
+  "controller_rules": [
+    "Do not assign script writing before source_candidates_review.md exists.",
+    "Do not treat a script as success unless the source signal is documented.",
+    "Window 1 owns discovery/scoring/source review.",
+    "Window 2 owns scripts only after approved signal.",
+    "Copy mechanics, not text, character, phrase order, or conclusion."
+  ]
+}

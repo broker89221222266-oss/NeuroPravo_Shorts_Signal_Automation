@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import argparse
 import csv
@@ -17,6 +17,7 @@ REQUIRED_OUTPUTS = (
     "scenario_cards.csv",
     "scenario_cards.json",
     "batch_summary.md",
+    "source_candidates_review.md",
     "validation_report.csv",
 )
 
@@ -90,6 +91,12 @@ def validate_outputs(case: SmokeCase, out_dir: Path, stdout: str) -> tuple[int, 
         raise SmokeFailure(f"{case.name}: CSV row count does not match generator output")
 
     summary = (out_dir / "batch_summary.md").read_text(encoding="utf-8")
+    source_review = (out_dir / "source_candidates_review.md").read_text(encoding="utf-8")
+    if "Source Candidates Review" not in source_review:
+        raise SmokeFailure(f"{case.name}: source_candidates_review.md does not look valid")
+    if "ЗАЛЕТЕВШИЙ-КАНДИДАТ" not in source_review and "ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ" not in source_review:
+        raise SmokeFailure(f"{case.name}: source review missing candidate statuses")
+
     if "Batch Summary" not in summary:
         raise SmokeFailure(f"{case.name}: batch_summary.md does not look valid")
     if case.metrics_mode == "public_search" and "Data quality / Metrics completeness" not in summary:

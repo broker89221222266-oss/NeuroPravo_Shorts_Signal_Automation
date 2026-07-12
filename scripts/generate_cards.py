@@ -505,6 +505,65 @@ def write_batch_summary(cards: list[ScoredCard], issues: list[ValidationIssue], 
     output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def viral_status(card: ScoredCard) -> str:
+    if card.selected and card.final_score >= 70 and card.neuropravo_fit_score >= 40:
+        return "ЗАЛЕТЕВШИЙ-КАНДИДАТ"
+    if card.editorial_decision in {"брать", "подумать"} and card.final_score >= 55:
+        return "ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ"
+    return "НЕ БРАТЬ"
+
+
+def adaptation_distance(card: ScoredCard) -> str:
+    if card.editorial_decision == "брать":
+        return "сильная переработка: берем механику конфликта, но меняем героя, ситуацию, формулировки, вывод и CTA"
+    if card.editorial_decision == "подумать":
+        return "только после ручного просмотра: возможно взять hook или конфликт, текст не копировать"
+    return "не адаптировать без отдельного решения"
+
+
+def write_source_review(cards: list[ScoredCard], issues: list[ValidationIssue], output_path: Path, input_path: Path, min_score: float, metrics_mode: str) -> None:
+    lines = [
+        "# Source Candidates Review",
+        "",
+        f"Входной CSV: `{input_path}`",
+        f"Metrics mode: `{metrics_mode}`",
+        f"Порог final_score: `{min_score:g}`",
+        f"Сгенерировано локально: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        "",
+        "Цель файла: сначала показать исходный материал и доказательства сигнала, и только потом разрешать сценарии.",
+        "Сценарий не считается рабочим результатом, если у кандидата нет исходной ссылки, метрик, причины залета и проверки на НейроПраво.",
+        "",
+        "## Правило допуска к сценарию",
+        "",
+        "- `ЗАЛЕТЕВШИЙ-КАНДИДАТ`: можно отдавать Окну 2 на сценарий после ручного просмотра исходника.",
+        "- `ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ`: смотреть вручную; сценарий только если Александр/контролер подтвердил смысл.",
+        "- `НЕ БРАТЬ`: не писать сценарий.",
+        "",
+        "## Кандидаты",
+        "",
+        "| # | status | decision | final | fit | views | reactions | date | platform | topic | source | why selected / rejected | adaptation distance |",
+        "|---:|---|---|---:|---:|---:|---:|---|---|---|---|---|---|",
+    ]
+    for index, card in enumerate(cards, start=1):
+        reactions = card.likes + card.comments + card.shares + card.saves
+        topic = (card.topic_hint or "без темы").replace("|", "/")
+        reason = card.selection_reason.replace("|", "/")
+        distance = adaptation_distance(card).replace("|", "/")
+        lines.append(
+            f"| {index} | {viral_status(card)} | {card.editorial_decision} | {card.final_score} | {card.neuropravo_fit_score} | {card.views} | {reactions} | {card.published_at} | {card.platform} | {topic} | {card.source_url} | {reason} | {distance} |"
+        )
+    if issues:
+        lines.extend(["", "## Validation issues", ""])
+        for issue in issues:
+            lines.append(f"- строка {issue.row_number}, `{issue.field}`: {issue.message}")
+    lines.extend([
+        "",
+        "## Контролерское правило",
+        "",
+        "Окно 2 не получает задание на сценарий, пока кандидат не имеет статуса `ЗАЛЕТЕВШИЙ-КАНДИДАТ` или вручную подтвержденного `ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ`.",
+        "Копирование текста, персонажа, последовательности фраз и чужого вывода запрещено. Разрешено переносить только механику: боль, конфликт, темп, поворот и тип зрительского интереса.",
+    ])
+    output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 def write_markdown(cards: list[ScoredCard], issues: list[ValidationIssue], output_path: Path, input_path: Path, min_score: float, metrics_mode: str) -> None:
     selected = [card for card in cards if card.selected]
     rejected = [card for card in cards if not card.selected]
@@ -660,6 +719,7 @@ def main() -> int:
 
     write_markdown(cards, issues, out_dir / "scenario_cards.md", input_path, min_score, metrics_mode)
     write_batch_summary(cards, issues, out_dir / "batch_summary.md", input_path, min_score, config, metrics_mode)
+    write_source_review(cards, issues, out_dir / "source_candidates_review.md", input_path, min_score, metrics_mode)
     write_json(cards, issues, out_dir / "scenario_cards.json")
     if cards:
         write_csv(cards, out_dir / "scenario_cards.csv")
@@ -678,8 +738,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-
-
-
 
