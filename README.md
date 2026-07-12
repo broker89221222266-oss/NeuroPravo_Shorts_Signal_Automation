@@ -28,16 +28,25 @@ output\scenario_cards.json
 output\validation_report.csv
 ```
 
-## Порог отбора
+## Порог отбора и режим метрик
 
-По умолчанию отбираются ролики с `final_score >= 70` и достаточной привязкой к темам НейроПраво.
+Есть два рабочих режима.
 
-Изменить порог:
+`normal` используйте для полных импортов: Apify, ViewStats, ручная таблица или CSV, где есть нормальная дата публикации, просмотры, лайки и комментарии. Рекомендуемый порог:
 
 ```powershell
-python .\scripts\generate_cards.py --input data\input_videos.csv --out output --min-score 70
-python .\scripts\generate_cards.py --input data\input_videos.csv --out output --min-score 80
+python .\scripts\generate_cards.py --input data\input_videos.csv --out output --min-score 70 --metrics-mode normal
 ```
+
+`public_search` используйте для открытой поисковой выдачи, где обычно видны ссылка и просмотры, но лайки, комментарии и точная дата не видны. Рекомендуемый порог:
+
+```powershell
+python .\scripts\generate_cards.py --input data\manual_batches\batch_2026-07-12.csv --out output\first_real_batch_2026-07-12_public_search --min-score 55 --metrics-mode public_search
+```
+
+Если режим не указать, инструмент попробует определить его автоматически. Для важных партий лучше задавать режим явно.
+
+В `public_search` нулевые likes/comments не считаются плохой реакцией, если в `notes` указано `unknown`, `visible_on_page` или `approximate`. Такой shortlist редакторский: перед производством нужно вручную открыть выбранные ролики и проверить содержание.
 
 ## CSV-шаблон
 
@@ -232,6 +241,7 @@ python .\scripts\generate_cards.py --input data\demos\mixed_manual_import_demo.c
 - LLM-вызов вместо локальной эвристики.
 
 Секреты, токены, cookies и ключи не хранить в GitHub, README, CSV или памяти проекта.
+
 
 
 

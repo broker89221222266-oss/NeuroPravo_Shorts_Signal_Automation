@@ -79,6 +79,9 @@ class ScoredCard:
     why_not_copying: str
     what_to_change_for_neuropravo: str
     legal_safe_boundary: str
+    metrics_mode: str
+    metrics_completeness: str
+    recency_quality: str
 
 
 def load_config() -> dict:
@@ -209,10 +212,59 @@ def raw_score(row: ImportRow) -> int:
     return row.views + row.comments * 30 + row.likes * 3 + row.shares * 30 + row.saves * 40
 
 
-def engagement_score(row: ImportRow) -> float:
+def metrics_incomplete(row: ImportRow) -> bool:
+    notes = normalize_text(row.notes)
+    explicit_markers = (
+        "unknown",
+        "approximate",
+        "visible_on_page",
+        "not visible",
+        'не видно',
+        'неизвест',
+        'примерн',
+    )
+    has_marker = any(marker in notes for marker in explicit_markers)
+    missing_reactions = row.views > 0 and row.likes <= 0 and row.comments <= 0 and row.shares <= 0 and row.saves <= 0
+    return has_marker or missing_reactions
+
+
+def recency_is_approximate(row: ImportRow) -> bool:
+    notes = normalize_text(row.notes)
+    return "approximate" in notes or "collection date" in notes or 'дата сбора' in notes or 'примерн' in notes
+
+
+def detect_metrics_mode(rows: list[ImportRow], requested_mode: str) -> str:
+    if requested_mode in {"normal", "public_search"}:
+        return requested_mode
+    if not rows:
+        return "normal"
+    incomplete_count = sum(1 for row in rows if metrics_incomplete(row))
+    with_views_count = sum(1 for row in rows if row.views > 0)
+    if with_views_count and incomplete_count / len(rows) >= 0.50:
+        return "public_search"
+    return "normal"
+
+
+def metrics_completeness_label(row: ImportRow, metrics_mode: str) -> str:
+    parts: list[str] = []
+    if metrics_incomplete(row):
+        parts.append("incomplete_public_metrics")
+    if row.likes <= 0 and row.comments <= 0:
+        parts.append("likes_comments_unknown_or_zero")
+    if recency_is_approximate(row):
+        parts.append("published_at_approximate")
+    if metrics_mode == "public_search":
+        parts.append("public_search_weighting")
+    return "; ".join(dict.fromkeys(parts)) or "complete_enough"
+
+
+def engagement_score(row: ImportRow, metrics_mode: str = "normal") -> float:
     if row.views <= 0:
         return 0.0
     engagement_units = row.likes + row.comments * 6 + row.shares * 8 + row.saves * 10
+    if metrics_mode == "public_search" and metrics_incomplete(row):
+        # Public search often shows views but hides reactions. Keep engagement neutral, not punitive.
+        return round(min(55.0, 30.0 + normalized_raw_score(row.views) * 0.20), 2)
     ratio = engagement_units / row.views
     return round(min(100.0, ratio * 600), 2)
 
@@ -240,26 +292,36 @@ def normalized_raw_score(score: int) -> float:
     return round(min(100.0, math.log10(score + 1) / 6 * 100), 2)
 
 
-def final_score(raw: int, engagement: float, recency: float, fit: float) -> float:
+def final_score(raw: int, engagement: float, recency: float, fit: float, metrics_mode: str = "normal") -> float:
     normalized_raw = normalized_raw_score(raw)
+    if metrics_mode == "public_search":
+        return round(normalized_raw * 0.45 + engagement * 0.05 + recency * 0.15 + fit * 0.35, 2)
     return round(normalized_raw * 0.35 + engagement * 0.20 + recency * 0.20 + fit * 0.25, 2)
 
 
-def build_reasons(row: ImportRow, final: float, fit: float, config: dict, min_score: float) -> tuple[bool, str, list[str]]:
+def build_reasons(row: ImportRow, final: float, fit: float, config: dict, min_score: float, metrics_mode: str = "normal") -> tuple[bool, str, list[str]]:
     rules = config["selection_rules"]
     rejection: list[str] = []
     if days_old(row.published_at) > int(config["window_days"]):
-        rejection.append("дата старше 30 дней")
+        rejection.append('дата старше 30 дней')
     if row.duration_sec > int(rules["max_duration_sec"]):
-        rejection.append("длительность больше лимита короткого формата")
+        rejection.append('длительность больше лимита короткого формата')
     if fit < float(rules["min_neuropravo_fit_score"]):
-        rejection.append("слабая привязка к темам НейроПраво")
+        rejection.append('слабая привязка к темам НейроПраво')
     if final < min_score:
         rejection.append(f"final_score ниже порога {min_score:g}")
+    if metrics_mode == "public_search" and metrics_incomplete(row):
+        has_visible_public_signal = row.views >= 5000 or (fit >= 68 and row.views >= 800)
+        if not has_visible_public_signal:
+            rejection.append('public_search: мало видимых просмотров для неполных метрик')
     selected = not rejection
     if selected:
-        return True, "отобран: свежий ролик, достаточный score и понятная legal/biz-боль", []
-    return False, "отсеян: " + "; ".join(rejection), rejection
+        if metrics_mode == "public_search" and metrics_incomplete(row):
+            return True, 'отобран: public_search, метрики неполные; score рассчитан без жесткого штрафа за unknown likes/comments', []
+        return True, 'отобран: свежий ролик, достаточный score и понятная legal/biz-боль', []
+    if metrics_mode == "public_search" and metrics_incomplete(row):
+        rejection.append('метрики неполные public_search, shortlist требует ручной проверки')
+    return False, 'отсеян: ' + "; ".join(rejection), rejection
 
 
 def first_sentence(text: str) -> str:
@@ -296,13 +358,13 @@ def editorial_decision(selected: bool, final: float, fit: float, rejection: list
     return "отложить"
 
 
-def build_card(row: ImportRow, config: dict, min_score: float) -> ScoredCard:
+def build_card(row: ImportRow, config: dict, min_score: float, metrics_mode: str = "normal") -> ScoredCard:
     raw = raw_score(row)
-    engagement = engagement_score(row)
+    engagement = engagement_score(row, metrics_mode)
     recency = recency_score(row, int(config["window_days"]))
     fit = neuropravo_fit_score(row, config)
-    final = final_score(raw, engagement, recency, fit)
-    selected, reason, rejection = build_reasons(row, final, fit, config, min_score)
+    final = final_score(raw, engagement, recency, fit, metrics_mode)
+    selected, reason, rejection = build_reasons(row, final, fit, config, min_score, metrics_mode)
     topic = row.topic_hint or "спорная ситуация"
     hook = first_sentence(row.title_or_caption)
     return ScoredCard(
@@ -349,6 +411,9 @@ def build_card(row: ImportRow, config: dict, min_score: float) -> ScoredCard:
         why_not_copying="Берем только механику: конфликт, темп, боль и поворот. Текст, примеры, формулировки и вывод пересобираются заново под НейроПраво.",
         what_to_change_for_neuropravo=f"Сместить фокус с чужой истории на практический риск в теме `{topic}`: деньги, сроки, документы, переписка и доказательства.",
         legal_safe_boundary="Не обещать результат, не разбирать персональное дело зрителя и не давать универсальную инструкцию. Говорить как о типовой ситуации: важны документы, даты, суммы и детали.",
+        metrics_mode=metrics_mode,
+        metrics_completeness=metrics_completeness_label(row, metrics_mode),
+        recency_quality="approximate" if recency_is_approximate(row) else "exact_or_imported",
     )
 
 
@@ -360,6 +425,8 @@ def quality_counters(cards: list[ScoredCard], issues: list[ValidationIssue], con
     rows_without_views = sum(1 for card in cards if card.views <= 0)
     rows_without_reactions = sum(1 for card in cards if card.likes <= 0 and card.comments <= 0)
     rejection_counter = Counter(reason for card in cards for reason in card.rejection_reasons)
+    incomplete_metrics = sum(1 for card in cards if "incomplete_public_metrics" in card.metrics_completeness)
+    approximate_dates = sum(1 for card in cards if card.recency_quality == "approximate")
     return {
         "total_videos": len(cards),
         "platforms": Counter(card.platform for card in cards),
@@ -367,11 +434,13 @@ def quality_counters(cards: list[ScoredCard], issues: list[ValidationIssue], con
         "older_than_window": sum(1 for card in cards if days_old(datetime.strptime(card.published_at, "%Y-%m-%d").date()) > int(config["window_days"])),
         "without_views": rows_without_views,
         "without_likes_or_comments": rows_without_reactions,
+        "incomplete_metrics": incomplete_metrics,
+        "approximate_dates": approximate_dates,
         "rejection_reasons": rejection_counter,
     }
 
 
-def write_batch_summary(cards: list[ScoredCard], issues: list[ValidationIssue], output_path: Path, input_path: Path, min_score: float, config: dict) -> None:
+def write_batch_summary(cards: list[ScoredCard], issues: list[ValidationIssue], output_path: Path, input_path: Path, min_score: float, config: dict, metrics_mode: str) -> None:
     selected = [card for card in cards if card.selected]
     rejected = [card for card in cards if not card.selected]
     counters = quality_counters(cards, issues, config)
@@ -397,6 +466,14 @@ def write_batch_summary(cards: list[ScoredCard], issues: list[ValidationIssue], 
         f"- Роликов старше {config['window_days']} дней: {counters['older_than_window']}",
         f"- Без просмотров: {counters['without_views']}",
         f"- Без лайков и комментариев: {counters['without_likes_or_comments']}",
+        "",
+        "## Data quality / Metrics completeness",
+        "",
+        f"- Metrics mode: `{metrics_mode}`",
+        f"- Rows with incomplete public metrics: {counters['incomplete_metrics']}",
+        f"- Rows with approximate published_at: {counters['approximate_dates']}",
+        "- In `public_search`, unknown likes/comments are not treated as negative engagement when notes say metrics are not visible.",
+        "- This shortlist is editorial: manually open candidates before production.",
         "",
         "## Платформы",
         "",
@@ -428,7 +505,7 @@ def write_batch_summary(cards: list[ScoredCard], issues: list[ValidationIssue], 
     output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def write_markdown(cards: list[ScoredCard], issues: list[ValidationIssue], output_path: Path, input_path: Path, min_score: float) -> None:
+def write_markdown(cards: list[ScoredCard], issues: list[ValidationIssue], output_path: Path, input_path: Path, min_score: float, metrics_mode: str) -> None:
     selected = [card for card in cards if card.selected]
     rejected = [card for card in cards if not card.selected]
     lines = [
@@ -555,6 +632,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--input", default=str(DEFAULT_INPUT), help="Path to import CSV.")
     parser.add_argument("--out", default=str(DEFAULT_OUT), help="Output directory.")
     parser.add_argument("--min-score", type=float, default=None, help="Minimum final_score for selected cards.")
+    parser.add_argument(
+        "--metrics-mode",
+        choices=["auto", "normal", "public_search"],
+        default="auto",
+        help="Scoring mode: normal for complete imports, public_search for open search batches with incomplete reactions/dates.",
+    )
     return parser.parse_args()
 
 
@@ -571,11 +654,12 @@ def main() -> int:
     min_score = float(args.min_score if args.min_score is not None else config.get("default_min_score", 70))
 
     rows, issues = load_rows(input_path, config)
-    cards = [build_card(row, config, min_score) for row in rows]
+    metrics_mode = detect_metrics_mode(rows, args.metrics_mode)
+    cards = [build_card(row, config, min_score, metrics_mode) for row in rows]
     cards.sort(key=lambda card: card.final_score, reverse=True)
 
-    write_markdown(cards, issues, out_dir / "scenario_cards.md", input_path, min_score)
-    write_batch_summary(cards, issues, out_dir / "batch_summary.md", input_path, min_score, config)
+    write_markdown(cards, issues, out_dir / "scenario_cards.md", input_path, min_score, metrics_mode)
+    write_batch_summary(cards, issues, out_dir / "batch_summary.md", input_path, min_score, config, metrics_mode)
     write_json(cards, issues, out_dir / "scenario_cards.json")
     if cards:
         write_csv(cards, out_dir / "scenario_cards.csv")
@@ -588,6 +672,7 @@ def main() -> int:
     print(f"Valid rows: {len(rows)}")
     print(f"Selected videos: {selected_count} of {len(cards)}")
     print(f"Validation issues: {len(issues)}")
+    print(f"Metrics mode: {metrics_mode}")
     return 0 if not issues else 2
 
 
