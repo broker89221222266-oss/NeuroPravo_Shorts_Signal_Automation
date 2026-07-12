@@ -68,6 +68,7 @@ class ScoredCard:
     neuropravo_fit_score: float
     creative_signal_score: float
     creative_signal_status: str
+    viral_first_status: str
     view_count_quality: str
     final_score: float
     why_it_worked: str
@@ -284,12 +285,34 @@ def creative_signal_status(row: ImportRow, metrics_mode: str) -> str:
     return "metadata_inferred"
 
 
+def viral_first_status(row: ImportRow) -> str:
+    notes = normalize_text(row.notes)
+    required_markers = (
+        "mechanic=",
+        "emotional_trigger=",
+        "conflict_type=",
+        "proof_object=",
+        "possible_neuropravo_mapping=",
+    )
+    if "topic_first_false_start" in notes or "legal_topic_first" in notes:
+        return "topic_first_false_start"
+    if "viral_first:confirmed" in notes and all(marker in notes for marker in required_markers):
+        return "confirmed"
+    if any(marker in notes for marker in ("viral_first", "mechanic=", "emotional_trigger=", "conflict_type=")):
+        return "partial_requires_manual_review"
+    return "missing"
+
+
 def public_search_needs_manual_confirmation(row: ImportRow, metrics_mode: str) -> bool:
     if metrics_mode != "public_search":
         return False
     if metrics_incomplete(row) or recency_is_approximate(row):
         return True
-    return creative_signal_status(row, metrics_mode) != "confirmed" or view_count_quality(row, metrics_mode) != "confirmed"
+    return (
+        creative_signal_status(row, metrics_mode) != "confirmed"
+        or view_count_quality(row, metrics_mode) != "confirmed"
+        or viral_first_status(row) != "confirmed"
+    )
 
 
 def detect_metrics_mode(rows: list[ImportRow], requested_mode: str) -> str:
@@ -351,11 +374,11 @@ def normalized_raw_score(score: int) -> float:
     return round(min(100.0, math.log10(score + 1) / 6 * 100), 2)
 
 
-def final_score(raw: int, engagement: float, recency: float, fit: float, metrics_mode: str = "normal") -> float:
+def final_score(raw: int, engagement: float, recency: float, fit: float, creative: float, metrics_mode: str = "normal") -> float:
     normalized_raw = normalized_raw_score(raw)
     if metrics_mode == "public_search":
-        return round(normalized_raw * 0.45 + engagement * 0.05 + recency * 0.15 + fit * 0.35, 2)
-    return round(normalized_raw * 0.35 + engagement * 0.20 + recency * 0.20 + fit * 0.25, 2)
+        return round(normalized_raw * 0.50 + engagement * 0.05 + recency * 0.15 + creative * 0.20 + fit * 0.10, 2)
+    return round(normalized_raw * 0.35 + engagement * 0.15 + recency * 0.15 + creative * 0.20 + fit * 0.15, 2)
 
 
 def build_reasons(row: ImportRow, final: float, fit: float, config: dict, min_score: float, metrics_mode: str = "normal") -> tuple[bool, str, list[str]]:
@@ -376,8 +399,8 @@ def build_reasons(row: ImportRow, final: float, fit: float, config: dict, min_sc
     selected = not rejection
     if selected:
         if public_search_needs_manual_confirmation(row, metrics_mode):
-            return True, 'shortlist only: public_search с неполными/неподтвержденными метриками и непроверенным creative_signal; максимум ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ до ручного подтверждения', []
-        return True, 'отобран: свежий ролик, достаточный score и понятная legal/biz-боль', []
+            return True, 'shortlist only: public_search с неполными/неподтвержденными метриками, непроверенным creative_signal или viral_first; максимум ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ до ручного подтверждения', []
+        return True, 'отобран в shortlist: достаточный score; статус ЗАЛЕТЕВШИЙ только после viral_first подтверждения механики', []
     if metrics_mode == "public_search" and metrics_incomplete(row):
         rejection.append('метрики неполные public_search, shortlist требует ручной проверки')
     return False, 'отсеян: ' + "; ".join(rejection), rejection
@@ -425,7 +448,10 @@ def build_card(row: ImportRow, config: dict, min_score: float, metrics_mode: str
     creative = creative_signal_score(row)
     creative_status = creative_signal_status(row, metrics_mode)
     views_quality = view_count_quality(row, metrics_mode)
-    final = final_score(raw, engagement, recency, fit, metrics_mode)
+    viral_first = viral_first_status(row)
+    final = final_score(raw, engagement, recency, fit, creative, metrics_mode)
+    if viral_first == "topic_first_false_start":
+        final = min(final, 54.99)
     if public_search_needs_manual_confirmation(row, metrics_mode):
         final = min(final, 64.99)
     selected, reason, rejection = build_reasons(row, final, fit, config, min_score, metrics_mode)
@@ -454,6 +480,7 @@ def build_card(row: ImportRow, config: dict, min_score: float, metrics_mode: str
         neuropravo_fit_score=fit,
         creative_signal_score=creative,
         creative_signal_status=creative_status,
+        viral_first_status=viral_first,
         view_count_quality=views_quality,
         final_score=final,
         why_it_worked=(
@@ -609,7 +636,7 @@ def write_discovery_manifest(
         "",
     ])
     if gate_status == "SOURCE-REVIEW-READY":
-        lines.append("Окно 1 может передать только кандидатов из `source_candidates_review.md` со статусом `ЗАЛЕТЕВШИЙ-КАНДИДАТ` или вручную подтвержденным `ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ`.")
+        lines.append("Окно 1 может передать только кандидатов из `source_candidates_review.md`, у которых подтверждена viral-first механика, или вручную подтвержденный `ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ`. Legal-topic совпадение само по себе не является допуском.")
     else:
         lines.append("Не передавать Окну 2 на сценарии. Сначала улучшить источник, добрать темы/метрики/свежесть и пересобрать партию.")
 
@@ -698,7 +725,7 @@ def viral_status(card: ScoredCard) -> str:
         if card.editorial_decision in {"брать", "подумать"} and card.final_score >= 55:
             return "ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ"
         return "НЕ БРАТЬ"
-    if card.selected and card.final_score >= 70 and card.neuropravo_fit_score >= 40:
+    if card.selected and card.final_score >= 70 and card.neuropravo_fit_score >= 40 and card.viral_first_status == "confirmed" and card.creative_signal_status == "confirmed":
         return "ЗАЛЕТЕВШИЙ-КАНДИДАТ"
     if card.editorial_decision in {"брать", "подумать"} and card.final_score >= 55:
         return "ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ"
@@ -727,16 +754,17 @@ def write_source_review(cards: list[ScoredCard], issues: list[ValidationIssue], 
         "",
         "## Правило допуска к сценарию",
         "",
-        "- `ЗАЛЕТЕВШИЙ-КАНДИДАТ`: можно отдавать Окну 2 на сценарий после ручного просмотра исходника.",
+        "- `ЗАЛЕТЕВШИЙ-КАНДИДАТ`: только после viral-first подтверждения механики, creative_signal и ручного просмотра исходника.",
         "- `ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ`: смотреть вручную; сценарий только если Александр/контролер подтвердил смысл.",
         "- `НЕ БРАТЬ`: не писать сценарий.",
         "",
-        "Public_search guard: если просмотры, дата или creative_signal не подтверждены, кандидат не получает статус `ЗАЛЕТЕВШИЙ-КАНДИДАТ` только за подходящую тему. Максимум - `ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ` до ручной проверки hook, конфликта, поворота и смысла реакций.",
+        "Viral-first guard: кандидат не получает статус `ЗАЛЕТЕВШИЙ-КАНДИДАТ` только за подходящую юридическую тему. Нужны viral_first:confirmed, mechanic, emotional_trigger, conflict_type, proof_object и possible_neuropravo_mapping.",
+        "Public_search guard: если просмотры, дата, creative_signal или viral_first не подтверждены, максимум - `ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ` до ручной проверки hook, конфликта, поворота и смысла реакций.",
         "",
         "## Кандидаты",
         "",
-        "| # | status | decision | final | fit | creative_signal | views | view_quality | reactions | date | platform | topic | source | why selected / rejected | adaptation distance |",
-        "|---:|---|---|---:|---:|---|---:|---|---:|---|---|---|---|---|---|",
+        "| # | status | decision | final | fit | creative_signal | viral_first | views | view_quality | reactions | date | platform | topic | source | why selected / rejected | adaptation distance |",
+        "|---:|---|---|---:|---:|---|---|---:|---|---:|---|---|---|---|---|---|",
     ]
     for index, card in enumerate(cards, start=1):
         reactions = card.likes + card.comments + card.shares + card.saves
@@ -744,7 +772,7 @@ def write_source_review(cards: list[ScoredCard], issues: list[ValidationIssue], 
         reason = card.selection_reason.replace("|", "/")
         distance = adaptation_distance(card).replace("|", "/")
         lines.append(
-            f"| {index} | {viral_status(card)} | {card.editorial_decision} | {card.final_score} | {card.neuropravo_fit_score} | {card.creative_signal_status}:{card.creative_signal_score} | {card.views} | {card.view_count_quality} | {reactions} | {card.published_at} | {card.platform} | {topic} | {card.source_url} | {reason} | {distance} |"
+            f"| {index} | {viral_status(card)} | {card.editorial_decision} | {card.final_score} | {card.neuropravo_fit_score} | {card.creative_signal_status}:{card.creative_signal_score} | {card.viral_first_status} | {card.views} | {card.view_count_quality} | {reactions} | {card.published_at} | {card.platform} | {topic} | {card.source_url} | {reason} | {distance} |"
         )
     if issues:
         lines.extend(["", "## Validation issues", ""])
@@ -754,9 +782,9 @@ def write_source_review(cards: list[ScoredCard], issues: list[ValidationIssue], 
         "",
         "## Контролерское правило",
         "",
-        "Окно 2 не получает задание на сценарий, пока кандидат не имеет статуса `ЗАЛЕТЕВШИЙ-КАНДИДАТ` или вручную подтвержденного `ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ`.",
+        "Окно 2 не получает задание на сценарий, пока кандидат не имеет viral-first подтверждения или вручную подтвержденного `ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ`.",
         "Копирование текста, персонажа, последовательности фраз и чужого вывода запрещено. Разрешено переносить только механику: боль, конфликт, темп, поворот и тип зрительского интереса.",
-        "Скучный ролик с подходящей темой не считается source signal: нужен подтвержденный creative_signal, а не только `topic_hint` и видимые/примерные просмотры.",
+        "Скучный ролик с подходящей темой не считается source signal: нужен подтвержденный viral_first и creative_signal, а не только `topic_hint` и видимые/примерные просмотры.",
     ])
     output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 def write_markdown(cards: list[ScoredCard], issues: list[ValidationIssue], output_path: Path, input_path: Path, min_score: float, metrics_mode: str) -> None:

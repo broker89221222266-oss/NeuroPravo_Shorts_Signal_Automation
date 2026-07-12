@@ -1,5 +1,5 @@
 ﻿{
-    "purpose":  "Regularly find viral short-video signals before writing NeuroPravo scripts.",
+    "purpose":  "Regularly find viral short-video mechanics first, then test NeuroPravo legal fit before writing scripts.",
     "cadence":  {
                     "daily_scan":  "24-72 hours",
                     "twice_weekly_scan":  "7 days",
@@ -82,22 +82,24 @@
                                                     }
                            },
     "statuses":  {
-                     "viral_candidate":  "Fresh, scored, relevant, with confirmed views/date, visible public signal, confirmed creative_signal, and transferable mechanic.",
-                     "potential_signal":  "Interesting but incomplete metrics, approximate date, unverified views, or unconfirmed creative_signal; requires manual review.",
-                     "reject":  "Weak signal, weak fit, stale, high copy risk, or no transferable mechanic."
+                     "viral_candidate":  "Confirmed viral-first signal with visible traction, confirmed creative_signal, transferable mechanic, and only then a plausible NeuroPravo mapping.",
+                     "potential_signal":  "Interesting conflict or public traction, but incomplete metrics, approximate date, unverified views, unconfirmed creative_signal, or missing viral_first confirmation; requires manual review.",
+                     "reject":  "Weak viral signal, topic-first/legal-only source, weak fit, stale, high copy risk, or no transferable mechanic."
                  },
     "creative_signal":  {
-                            "purpose":  "Prevent boring topic-fit videos from becoming top candidates only because they match NeuroPravo topics.",
+                            "purpose":  "Prevent boring topic-fit/legal videos from becoming top candidates. Viral mechanic comes before NeuroPravo legal fit.",
                             "required_for_viral_candidate":  true,
                             "criteria":  [
                                              "strong hook in the first 3 seconds",
-                                             "clear human/business conflict",
+                                             "clear human/business/everyday conflict",
                                              "surprise, turn, or non-obvious lesson",
                                              "everyday recognizability for the target viewer",
+                                             "mechanic/emotional_trigger/conflict_type/proof_object/mapping documented",
                                              "comments/reactions assessed by meaning when visible, not only count",
                                              "view count confirmed, not approximate or inferred"
                                          ],
                             "manual_review_markers":  [
+                                                          "viral_first:confirmed",
                                                           "creative_signal:confirmed",
                                                           "hook_confirmed",
                                                           "manual_creative_confirmed",
@@ -112,15 +114,19 @@
                         },
     "public_search_caution":  {
                                   "max_status_without_manual_confirmation":  "ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ",
-                                  "rule":  "If views/date/creative_signal are not confirmed, public_search rows cannot become ЗАЛЕТЕВШИЙ-КАНДИДАТ only by topic fit or visible/inferred views.",
+                                  "rule":  "If views/date/creative_signal/viral_first are not confirmed, public_search rows cannot become ЗАЛЕТЕВШИЙ-КАНДИДАТ by topic fit or visible/inferred views.",
                                   "requires_before_viral_candidate":  [
-                                                                         "manual public source view",
-                                                                         "confirmed view count",
-                                                                         "confirmed or exact publication date/freshness",
-                                                                         "confirmed first-3-seconds hook",
-                                                                         "confirmed conflict and transferable mechanic",
-                                                                         "copy-risk check"
-                                                                     ]
+                                                                          "manual public source view",
+                                                                          "confirmed view count",
+                                                                          "confirmed or exact publication date/freshness",
+                                                                          "confirmed first-3-seconds hook",
+                                                                          "confirmed viral-first mechanic",
+                                                                          "documented emotional trigger",
+                                                                          "documented conflict type",
+                                                                          "documented proof object",
+                                                                          "documented possible NeuroPravo mapping",
+                                                                          "copy-risk check"
+                                                                      ]
                               },
     "minimum_review_fields":  [
                                   "source_url",
@@ -136,6 +142,12 @@
                                   "metrics_completeness",
                                   "recency_quality",
                                   "creative_signal",
+                                  "viral_first_confirmation",
+                                  "mechanic",
+                                  "emotional_trigger",
+                                  "conflict_type",
+                                  "proof_object",
+                                  "possible_neuropravo_mapping",
                                   "view_count_quality",
                                   "adaptation_distance"
                               ],
@@ -144,8 +156,40 @@
                              "Do not treat a script as success unless the source signal is documented.",
                              "Window 1 owns discovery/scoring/source review.",
                              "Window 2 owns scripts only after approved signal.",
+                             "Viral mechanic comes before NeuroPravo legal fit.",
+                             "Do not search lawyer/legal-topic first.",
                              "Copy mechanics, not text, character, phrase order, or conclusion.",
-                             "A boring video with topic fit is not a top candidate without confirmed creative_signal.",
-                             "In public_search mode, unconfirmed views/date/creative_signal means maximum ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ."
-                         ]
+                             "A boring video with topic fit is not a top candidate without confirmed creative_signal and viral_first confirmation.",
+                             "In public_search mode, unconfirmed views/date/creative_signal/viral_first means maximum ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ."
+                         ],
+    "discovery_strategy":  {
+                               "name":  "viral-first, then legal-fit",
+                               "stopped_strategy":  "topic-first legal search",
+                               "hard_rule":  "Do not start from lawyer/legal-topic searches. A legal topic is not a positive signal by itself.",
+                               "search_domains":  [
+                                                      "бытовые конфликты",
+                                                      "деньги",
+                                                      "ремонт",
+                                                      "услуги",
+                                                      "покупки",
+                                                      "маркетплейсы",
+                                                      "работа",
+                                                      "клиент не заплатил",
+                                                      "обман",
+                                                      "меня кинули",
+                                                      "что делать если",
+                                                      "семейные конфликты",
+                                                      "наследственные конфликты",
+                                                      "имущественные конфликты"
+                                                  ],
+                               "required_mapping_fields":  [
+                                                               "mechanic",
+                                                               "emotional_trigger",
+                                                               "conflict_type",
+                                                               "proof_object",
+                                                               "possible_neuropravo_mapping"
+                                                           ],
+                               "required_confirmation_marker":  "viral_first:confirmed"
+                           }
 }
+

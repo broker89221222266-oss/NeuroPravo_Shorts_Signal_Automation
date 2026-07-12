@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import argparse
 import csv
@@ -34,11 +34,11 @@ class SmokeCase:
 
 
 CASES = (
-    SmokeCase("main_input", "data/input_videos.csv", 70, "normal", 1, "about 4"),
-    SmokeCase("youtube_demo", "data/demos/youtube_shorts_demo.csv", 70, "normal", 1, "about 3"),
-    SmokeCase("tiktok_demo", "data/demos/tiktok_apify_demo.csv", 70, "normal", 1, "about 3"),
-    SmokeCase("mixed_demo", "data/demos/mixed_manual_import_demo.csv", 70, "normal", 1, "about 4"),
-    SmokeCase("first_public_batch", "data/manual_batches/batch_2026-07-12.csv", 55, "public_search", 1, "about 24"),
+    SmokeCase("main_input", "data/input_videos.csv", 70, "normal", 0, "about 4; legacy rows may select 0 without viral_first"),
+    SmokeCase("youtube_demo", "data/demos/youtube_shorts_demo.csv", 70, "normal", 0, "about 3; legacy rows may select 0 without viral_first"),
+    SmokeCase("tiktok_demo", "data/demos/tiktok_apify_demo.csv", 70, "normal", 0, "about 3; legacy rows may select 0 without viral_first"),
+    SmokeCase("mixed_demo", "data/demos/mixed_manual_import_demo.csv", 70, "normal", 0, "about 4; legacy rows may select 0 without viral_first"),
+    SmokeCase("first_public_batch", "data/manual_batches/batch_2026-07-12.csv", 55, "public_search", 0, "about 24; public_search requires manual viral-first confirmation"),
 )
 
 
@@ -90,6 +90,8 @@ def validate_outputs(case: SmokeCase, out_dir: Path, stdout: str) -> tuple[int, 
     csv_rows = read_csv_rows(out_dir / "scenario_cards.csv")
     if len(csv_rows) != total_count:
         raise SmokeFailure(f"{case.name}: CSV row count does not match generator output")
+    if csv_rows and "viral_first_status" not in csv_rows[0]:
+        raise SmokeFailure(f"{case.name}: CSV missing viral_first_status column")
 
     summary = (out_dir / "batch_summary.md").read_text(encoding="utf-8")
     manifest = (out_dir / "discovery_manifest.md").read_text(encoding="utf-8")
@@ -100,7 +102,9 @@ def validate_outputs(case: SmokeCase, out_dir: Path, stdout: str) -> tuple[int, 
         raise SmokeFailure(f"{case.name}: discovery manifest missing gate status")
     if "Source Candidates Review" not in source_review:
         raise SmokeFailure(f"{case.name}: source_candidates_review.md does not look valid")
-    if "ЗАЛЕТЕВШИЙ-КАНДИДАТ" not in source_review and "ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ" not in source_review:
+    if "Viral-first guard" not in source_review:
+        raise SmokeFailure(f"{case.name}: source review missing viral-first guard")
+    if "ЗАЛЕТЕВШИЙ-КАНДИДАТ" not in source_review and "ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ" not in source_review and "НЕ БРАТЬ" not in source_review:
         raise SmokeFailure(f"{case.name}: source review missing candidate statuses")
 
     if "Batch Summary" not in summary:
