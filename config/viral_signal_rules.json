@@ -82,10 +82,46 @@
                                                     }
                            },
     "statuses":  {
-                     "viral_candidate":  "Fresh, scored, relevant, with visible public signal and transferable mechanic.",
-                     "potential_signal":  "Interesting but incomplete metrics or approximate date; requires manual review.",
+                     "viral_candidate":  "Fresh, scored, relevant, with confirmed views/date, visible public signal, confirmed creative_signal, and transferable mechanic.",
+                     "potential_signal":  "Interesting but incomplete metrics, approximate date, unverified views, or unconfirmed creative_signal; requires manual review.",
                      "reject":  "Weak signal, weak fit, stale, high copy risk, or no transferable mechanic."
                  },
+    "creative_signal":  {
+                            "purpose":  "Prevent boring topic-fit videos from becoming top candidates only because they match NeuroPravo topics.",
+                            "required_for_viral_candidate":  true,
+                            "criteria":  [
+                                             "strong hook in the first 3 seconds",
+                                             "clear human/business conflict",
+                                             "surprise, turn, or non-obvious lesson",
+                                             "everyday recognizability for the target viewer",
+                                             "comments/reactions assessed by meaning when visible, not only count",
+                                             "view count confirmed, not approximate or inferred"
+                                         ],
+                            "manual_review_markers":  [
+                                                          "creative_signal:confirmed",
+                                                          "hook_confirmed",
+                                                          "manual_creative_confirmed",
+                                                          "views_confirmed"
+                                                      ],
+                            "reject_markers":  [
+                                                   "creative_signal:reject",
+                                                   "boring",
+                                                   "скучный",
+                                                   "неинтересный"
+                                               ]
+                        },
+    "public_search_caution":  {
+                                  "max_status_without_manual_confirmation":  "ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ",
+                                  "rule":  "If views/date/creative_signal are not confirmed, public_search rows cannot become ЗАЛЕТЕВШИЙ-КАНДИДАТ only by topic fit or visible/inferred views.",
+                                  "requires_before_viral_candidate":  [
+                                                                         "manual public source view",
+                                                                         "confirmed view count",
+                                                                         "confirmed or exact publication date/freshness",
+                                                                         "confirmed first-3-seconds hook",
+                                                                         "confirmed conflict and transferable mechanic",
+                                                                         "copy-risk check"
+                                                                     ]
+                              },
     "minimum_review_fields":  [
                                   "source_url",
                                   "platform",
@@ -99,6 +135,8 @@
                                   "selection_reason",
                                   "metrics_completeness",
                                   "recency_quality",
+                                  "creative_signal",
+                                  "view_count_quality",
                                   "adaptation_distance"
                               ],
     "controller_rules":  [
@@ -106,6 +144,8 @@
                              "Do not treat a script as success unless the source signal is documented.",
                              "Window 1 owns discovery/scoring/source review.",
                              "Window 2 owns scripts only after approved signal.",
-                             "Copy mechanics, not text, character, phrase order, or conclusion."
+                             "Copy mechanics, not text, character, phrase order, or conclusion.",
+                             "A boring video with topic fit is not a top candidate without confirmed creative_signal.",
+                             "In public_search mode, unconfirmed views/date/creative_signal means maximum ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ."
                          ]
 }

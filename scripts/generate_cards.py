@@ -66,6 +66,9 @@ class ScoredCard:
     engagement_score: float
     recency_score: float
     neuropravo_fit_score: float
+    creative_signal_score: float
+    creative_signal_status: str
+    view_count_quality: str
     final_score: float
     why_it_worked: str
     mechanic: str
@@ -241,6 +244,54 @@ def recency_is_approximate(row: ImportRow) -> bool:
     return "approximate" in notes or "collection date" in notes or 'дата сбора' in notes or 'примерн' in notes
 
 
+def view_count_quality(row: ImportRow, metrics_mode: str) -> str:
+    notes = normalize_text(row.notes)
+    if "views_confirmed" in notes or "confirmed views" in notes or "просмотры подтверждены" in notes:
+        return "confirmed"
+    if metrics_mode == "public_search":
+        if "visible_on_page" in notes:
+            return "visible_but_unverified"
+        return "unverified_public_search"
+    return "confirmed_enough"
+
+
+def creative_signal_score(row: ImportRow) -> float:
+    text = normalize_text(row.title_or_caption, row.topic_hint, row.notes)
+    score = 0.0
+    if any(marker in text for marker in ("creative_signal:confirmed", "manual_creative_confirmed", "hook_confirmed")):
+        score += 35
+    if any(marker in text for marker in ("конфликт", "спор", "не платит", "деньги", "долг", "аванс", "возврат")):
+        score += 20
+    if any(marker in text for marker in ("поворот", "неожидан", "ошибка", "опасн", "потер", "пропал")):
+        score += 15
+    if any(marker in text for marker in ("бытов", "предприним", "клиент", "заказчик", "расписк", "ремонт", "маркетплейс")):
+        score += 15
+    if "?" in row.title_or_caption or "!" in row.title_or_caption:
+        score += 10
+    if any(marker in text for marker in ("boring", "скучн", "неинтерес", "creative_signal:reject")):
+        score = min(score, 20)
+    return round(min(100.0, score), 2)
+
+
+def creative_signal_status(row: ImportRow, metrics_mode: str) -> str:
+    notes = normalize_text(row.notes)
+    if any(marker in notes for marker in ("boring", "скучн", "неинтерес", "creative_signal:reject")):
+        return "rejected_boring_or_weak"
+    if any(marker in notes for marker in ("creative_signal:confirmed", "manual_creative_confirmed", "hook_confirmed")):
+        return "confirmed"
+    if metrics_mode == "public_search":
+        return "unverified_requires_manual_view"
+    return "metadata_inferred"
+
+
+def public_search_needs_manual_confirmation(row: ImportRow, metrics_mode: str) -> bool:
+    if metrics_mode != "public_search":
+        return False
+    if metrics_incomplete(row) or recency_is_approximate(row):
+        return True
+    return creative_signal_status(row, metrics_mode) != "confirmed" or view_count_quality(row, metrics_mode) != "confirmed"
+
+
 def detect_metrics_mode(rows: list[ImportRow], requested_mode: str) -> str:
     if requested_mode in {"normal", "public_search"}:
         return requested_mode
@@ -324,8 +375,8 @@ def build_reasons(row: ImportRow, final: float, fit: float, config: dict, min_sc
             rejection.append('public_search: мало видимых просмотров для неполных метрик')
     selected = not rejection
     if selected:
-        if metrics_mode == "public_search" and metrics_incomplete(row):
-            return True, 'отобран: public_search, метрики неполные; score рассчитан без жесткого штрафа за unknown likes/comments', []
+        if public_search_needs_manual_confirmation(row, metrics_mode):
+            return True, 'shortlist only: public_search с неполными/неподтвержденными метриками и непроверенным creative_signal; максимум ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ до ручного подтверждения', []
         return True, 'отобран: свежий ролик, достаточный score и понятная legal/biz-боль', []
     if metrics_mode == "public_search" and metrics_incomplete(row):
         rejection.append('метрики неполные public_search, shortlist требует ручной проверки')
@@ -371,7 +422,12 @@ def build_card(row: ImportRow, config: dict, min_score: float, metrics_mode: str
     engagement = engagement_score(row, metrics_mode)
     recency = recency_score(row, int(config["window_days"]))
     fit = neuropravo_fit_score(row, config)
+    creative = creative_signal_score(row)
+    creative_status = creative_signal_status(row, metrics_mode)
+    views_quality = view_count_quality(row, metrics_mode)
     final = final_score(raw, engagement, recency, fit, metrics_mode)
+    if public_search_needs_manual_confirmation(row, metrics_mode):
+        final = min(final, 64.99)
     selected, reason, rejection = build_reasons(row, final, fit, config, min_score, metrics_mode)
     topic = row.topic_hint or "спорная ситуация"
     hook = first_sentence(row.title_or_caption)
@@ -396,6 +452,9 @@ def build_card(row: ImportRow, config: dict, min_score: float, metrics_mode: str
         engagement_score=engagement,
         recency_score=recency,
         neuropravo_fit_score=fit,
+        creative_signal_score=creative,
+        creative_signal_status=creative_status,
+        view_count_quality=views_quality,
         final_score=final,
         why_it_worked=(
             "Есть узнаваемый конфликт, измеримые последствия и точка напряжения: деньги, срок, доверие, "
@@ -630,6 +689,15 @@ def write_batch_summary(cards: list[ScoredCard], issues: list[ValidationIssue], 
 
 
 def viral_status(card: ScoredCard) -> str:
+    if card.metrics_mode == "public_search" and (
+        card.metrics_completeness != "complete_enough"
+        or card.recency_quality not in {"exact_or_imported", "confirmed"}
+        or card.creative_signal_status != "confirmed"
+        or card.view_count_quality != "confirmed"
+    ):
+        if card.editorial_decision in {"брать", "подумать"} and card.final_score >= 55:
+            return "ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ"
+        return "НЕ БРАТЬ"
     if card.selected and card.final_score >= 70 and card.neuropravo_fit_score >= 40:
         return "ЗАЛЕТЕВШИЙ-КАНДИДАТ"
     if card.editorial_decision in {"брать", "подумать"} and card.final_score >= 55:
@@ -663,10 +731,12 @@ def write_source_review(cards: list[ScoredCard], issues: list[ValidationIssue], 
         "- `ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ`: смотреть вручную; сценарий только если Александр/контролер подтвердил смысл.",
         "- `НЕ БРАТЬ`: не писать сценарий.",
         "",
+        "Public_search guard: если просмотры, дата или creative_signal не подтверждены, кандидат не получает статус `ЗАЛЕТЕВШИЙ-КАНДИДАТ` только за подходящую тему. Максимум - `ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ` до ручной проверки hook, конфликта, поворота и смысла реакций.",
+        "",
         "## Кандидаты",
         "",
-        "| # | status | decision | final | fit | views | reactions | date | platform | topic | source | why selected / rejected | adaptation distance |",
-        "|---:|---|---|---:|---:|---:|---:|---|---|---|---|---|---|",
+        "| # | status | decision | final | fit | creative_signal | views | view_quality | reactions | date | platform | topic | source | why selected / rejected | adaptation distance |",
+        "|---:|---|---|---:|---:|---|---:|---|---:|---|---|---|---|---|---|",
     ]
     for index, card in enumerate(cards, start=1):
         reactions = card.likes + card.comments + card.shares + card.saves
@@ -674,7 +744,7 @@ def write_source_review(cards: list[ScoredCard], issues: list[ValidationIssue], 
         reason = card.selection_reason.replace("|", "/")
         distance = adaptation_distance(card).replace("|", "/")
         lines.append(
-            f"| {index} | {viral_status(card)} | {card.editorial_decision} | {card.final_score} | {card.neuropravo_fit_score} | {card.views} | {reactions} | {card.published_at} | {card.platform} | {topic} | {card.source_url} | {reason} | {distance} |"
+            f"| {index} | {viral_status(card)} | {card.editorial_decision} | {card.final_score} | {card.neuropravo_fit_score} | {card.creative_signal_status}:{card.creative_signal_score} | {card.views} | {card.view_count_quality} | {reactions} | {card.published_at} | {card.platform} | {topic} | {card.source_url} | {reason} | {distance} |"
         )
     if issues:
         lines.extend(["", "## Validation issues", ""])
@@ -686,6 +756,7 @@ def write_source_review(cards: list[ScoredCard], issues: list[ValidationIssue], 
         "",
         "Окно 2 не получает задание на сценарий, пока кандидат не имеет статуса `ЗАЛЕТЕВШИЙ-КАНДИДАТ` или вручную подтвержденного `ПОТЕНЦИАЛЬНЫЙ-СИГНАЛ`.",
         "Копирование текста, персонажа, последовательности фраз и чужого вывода запрещено. Разрешено переносить только механику: боль, конфликт, темп, поворот и тип зрительского интереса.",
+        "Скучный ролик с подходящей темой не считается source signal: нужен подтвержденный creative_signal, а не только `topic_hint` и видимые/примерные просмотры.",
     ])
     output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 def write_markdown(cards: list[ScoredCard], issues: list[ValidationIssue], output_path: Path, input_path: Path, min_score: float, metrics_mode: str) -> None:
